@@ -1,10 +1,21 @@
 const API_BASE = '/api';
 
+export function getUserAccessToken() {
+  return sessionStorage.getItem('access_token') || localStorage.getItem('access_token');
+}
+export function getUserRefreshToken() {
+  return sessionStorage.getItem('refresh_token') || localStorage.getItem('refresh_token');
+}
+export function getAdminAccessToken() {
+  return sessionStorage.getItem('admin_access_token') || localStorage.getItem('admin_access_token');
+}
+export function getAdminRefreshToken() {
+  return sessionStorage.getItem('admin_refresh_token') || localStorage.getItem('admin_refresh_token');
+}
+
 async function request(endpoint, options = {}) {
   const isAdmin = endpoint.startsWith('/admin/');
-  const token = isAdmin
-    ? (localStorage.getItem('admin_access_token') || sessionStorage.getItem('admin_access_token'))
-    : (localStorage.getItem('access_token') || sessionStorage.getItem('access_token'));
+  const token = isAdmin ? getAdminAccessToken() : getUserAccessToken();
   const headers = { 'Content-Type': 'application/json', ...options.headers };
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
@@ -91,7 +102,7 @@ export const api = {
   uploadPhoto(file) {
     const formData = new FormData();
     formData.append('image', file);
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token = getUserAccessToken();
     return fetch('/api/auth/photos/upload/', {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -135,7 +146,7 @@ export const api = {
   uploadCoverPhoto(file) {
     const formData = new FormData();
     formData.append('image', file);
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token = getUserAccessToken();
     return fetch('/api/auth/cover-photo/', {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -149,8 +160,29 @@ export const api = {
   recentlyVerified() {
     return request('/auth/recently-verified/', { method: 'GET' });
   },
+  getPlans() {
+    return request('/subscriptions/plans/', { method: 'GET' });
+  },
+  getLegalVersions() {
+    return request('/auth/legal/versions/', { method: 'GET' });
+  },
+  recordConsent(payload) {
+    return request('/auth/consents/', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  getConsentStatus() {
+    return request('/auth/consents/status/', { method: 'GET' });
+  },
+  getCurrentSubscription() {
+    return request('/subscriptions/current/', { method: 'GET' });
+  },
+  initPayment(payload) {
+    return request('/subscriptions/subscribe/', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  verifyPayment(payload) {
+    return request('/subscriptions/verify-payment/', { method: 'POST', body: JSON.stringify(payload) });
+  },
   uploadAudio(formData) {
-    const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token = getUserAccessToken();
     return fetch('/api/auth/audio-upload/', {
       method: 'POST',
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -230,6 +262,9 @@ export const api = {
   },
   adminNotificationFeed() {
     return request('/admin/notifications/feed/', { method: 'GET' })
+  },
+  adminInvitationLookup(token) {
+    return request(`/admin/invitations/lookup/?token=${encodeURIComponent(token)}`, { method: 'GET' })
   },
   adminInvitations(payload) {
     return request('/admin/invitations/', { method: 'POST', body: JSON.stringify(payload) })

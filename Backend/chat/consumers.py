@@ -1,58 +1,251 @@
 import json
+import re
+
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from rest_framework_simplejwt.tokens import AccessToken
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
+
 from chat.models import Conversation, Message
 from accounts.models import Activity
 
 User = get_user_model()
 
+PRESENCE_GROUP = 'presence'
+ONLINE_IDS_KEY = 'chat_online_ids'
+CONN_KEY_TPL = 'chat_conns_{user_id}'
+RATE_LIMIT_KEY_TPL = 'chat_rate_{user_id}'
 
-class ChatConsumer(AsyncWebsocketConsumer):
+ONLINE_TTL = 12 * 60 * 60
+RATE_LIMIT_WINDOW = 60
+RATE_LIMIT_MAX = 90
+MAX_MESSAGE_LEN = 4000
+
+CONTROL_CHARS_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
+CONV_ID_RE = re.compile(r'^\d+$')
+
+
+def sanitize_text(text):
+    text = text or ''
+    if not isinstance(text, str):
+        text = str(text)
+    text = CONTROL_CHARS_RE.sub('', text)
+    return text.strip()[:MAX_MESSAGE_LEN]
+
+
+def extract_token(scope):
+    """Extract a JWT access token strictly from the negotiated subprotocol.
+
+    Tokens are never accepted from the URL query string, so credentials never
+    leak into access logs, proxies, or referrer headers.
+    """
+    for protocol in scope.get('subprotocols') or []:
+        if protocol.startswith('Bearer.'):
+            return protocol[len('Bearer.'):]
+    return None
+
+
+class PresenceConsumerBase(AsyncWebsocketConsumer):
+    """Base consumer implementing a global, cache-backed presence system.
+
+    Every authenticated socket joins the global ``PRESENCE_GROUP``. Online
+    membership is counted per user in Redis so multiple tabs/connections don't
+    produce false offline broadcasts. New connections receive a snapshot of
+    everyone currently online.
+    """
+
     async def connect(self):
-        self.conv_id = self.scope['url_route']['kwargs']['conv_id']
-        self.room_group_name = f'chat_{self.conv_id}'
-
-        user = await self.get_user()
-        if not user or not await self.is_participant(user):
-            await self.close()
+        self.user = await self.authenticate_user()
+        if self.user is None:
+            await self.close(code=4001)
             return
 
-        self.user = user
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-        await self.accept()
+        await self.channel_layer.group_add(PRESENCE_GROUP, self.channel_name)
+        await self.accept(subprotocol=await self.accepted_subprotocol())
 
+        await self.mark_online(self.user.id)
         await self.channel_layer.group_send(
-            self.room_group_name,
+            PRESENCE_GROUP,
             {
                 'type': 'user_online',
-                'user_id': user.id,
-                'first_name': user.first_name or 'User',
+                'user_id': self.user.id,
+                'first_name': self.user.first_name or 'User',
             }
         )
+        await self.send_presence_snapshot()
+
+    async def disconnect(self, close_code):
+        if hasattr(self, 'user') and self.user is not None:
+            await self.channel_layer.group_discard(PRESENCE_GROUP, self.channel_name)
+            was_last = await self.mark_offline(self.user.id)
+            if was_last:
+                await self.channel_layer.group_send(
+                    PRESENCE_GROUP,
+                    {'type': 'user_offline', 'user_id': self.user.id},
+                )
+
+    async def receive(self, text_data):
+        # Presence sockets only observe; they never accept messages.
+        return
+
+    async def accepted_subprotocol(self):
+        subs = self.scope.get('subprotocols') or []
+        for preferred in ('dp',):
+            if preferred in subs:
+                return preferred
+        return subs[0] if subs else None
+
+    @database_sync_to_async
+    def authenticate_user(self):
+        token = extract_token(self.scope)
+        if not token:
+            return None
+        try:
+            access = AccessToken(token)
+        except Exception:
+            return None
+        try:
+            user = User.objects.get(id=access['user_id'])
+        except (User.DoesNotExist, KeyError, AttributeError, TypeError):
+            return None
+        if not user.is_active:
+            return None
+        return user
+
+    @database_sync_to_async
+    def mark_online(self, user_id):
+        conn_key = CONN_KEY_TPL.format(user_id=user_id)
+        cache.set(conn_key, int(cache.get(conn_key, 0) or 0) + 1, ONLINE_TTL)
+        online = set(cache.get(ONLINE_IDS_KEY, set()) or set())
+        online.add(user_id)
+        cache.set(ONLINE_IDS_KEY, online, ONLINE_TTL)
+
+    @database_sync_to_async
+    def mark_offline(self, user_id):
+        conn_key = CONN_KEY_TPL.format(user_id=user_id)
+        count = int(cache.get(conn_key, 0) or 0)
+        if count <= 1:
+            cache.delete(conn_key)
+            online = set(cache.get(ONLINE_IDS_KEY, set()) or set())
+            online.discard(user_id)
+            cache.set(ONLINE_IDS_KEY, online, ONLINE_TTL)
+            return True
+        cache.set(conn_key, count - 1, ONLINE_TTL)
+        return False
+
+    @database_sync_to_async
+    def get_online_ids(self):
+        return set(cache.get(ONLINE_IDS_KEY, set()) or set())
+
+    @database_sync_to_async
+    def allow_message(self, user_id):
+        key = RATE_LIMIT_KEY_TPL.format(user_id=user_id)
+        count = int(cache.get(key, 0) or 0)
+        if count >= RATE_LIMIT_MAX:
+            return False
+        cache.set(key, count + 1, RATE_LIMIT_WINDOW)
+        return True
+
+    async def send_presence_snapshot(self):
+        online = await self.get_online_ids()
+        online.discard(self.user.id)
+        await self.send(text_data=json.dumps({
+            'type': 'presence_snapshot',
+            'online': list(online),
+        }))
+
+    # --- Client-facing global presence handlers ---
+    async def user_online(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'online',
+            'user_id': event['user_id'],
+            'first_name': event.get('first_name', 'User'),
+        }))
+
+    async def user_offline(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'offline',
+            'user_id': event['user_id'],
+        }))
+
+
+class PresenceConsumer(PresenceConsumerBase):
+    """Dedicated presence-only socket (ws/presence/)."""
+
+    pass
+
+
+class ChatConsumer(PresenceConsumerBase):
+    """Per-conversation messaging socket with global presence participation."""
+
+    async def connect(self):
+        raw_conv = self.scope['url_route']['kwargs'].get('conv_id')
+        if not raw_conv or not CONV_ID_RE.match(raw_conv):
+            await self.close(code=4400)
+            return
+        self.conv_id = int(raw_conv)
+        self.room_group_name = f'chat_{self.conv_id}'
+
+        self.user = await self.authenticate_user()
+        if self.user is None:
+            await self.close(code=4001)
+            return
+        if not await self.is_participant(self.user):
+            await self.close(code=4403)
+            return
+
+        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_add(PRESENCE_GROUP, self.channel_name)
+        await self.accept(subprotocol=await self.accepted_subprotocol())
+
+        await self.mark_online(self.user.id)
+        await self.channel_layer.group_send(
+            PRESENCE_GROUP,
+            {
+                'type': 'user_online',
+                'user_id': self.user.id,
+                'first_name': self.user.first_name or 'User',
+            }
+        )
+        await self.send_presence_snapshot()
 
     async def disconnect(self, close_code):
         if hasattr(self, 'room_group_name'):
             await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-            if hasattr(self, 'user'):
+        if hasattr(self, 'user') and self.user is not None:
+            await self.channel_layer.group_discard(PRESENCE_GROUP, self.channel_name)
+            was_last = await self.mark_offline(self.user.id)
+            if was_last:
                 await self.channel_layer.group_send(
-                    self.room_group_name,
-                    {
-                        'type': 'user_offline',
-                        'user_id': self.user.id,
-                    }
+                    PRESENCE_GROUP,
+                    {'type': 'user_offline', 'user_id': self.user.id},
                 )
 
     async def receive(self, text_data):
-        data = json.loads(text_data)
-        msg_type = data.get('type', 'message')
+        try:
+            data = json.loads(text_data)
+        except (json.JSONDecodeError, TypeError):
+            return
+
+        msg_type = data.get('type')
 
         if msg_type == 'message':
-            text = data.get('text', '').strip()
+            if not await self.allow_message(self.user.id):
+                await self.send(text_data=json.dumps({'type': 'rate_limited', 'message': 'Slow down'}))
+                return
+            text = sanitize_text(data.get('text'))
             if not text:
                 return
+            if not await self.check_message_quota():
+                await self.send(text_data=json.dumps({
+                    'type': 'quota_denied',
+                    'error': 'MESSAGE_LIMIT_REACHED',
+                    'detail': 'Your message limit is exhausted for this period.',
+                }))
+                return
             msg = await self.save_message(text)
+            await self.record_message_sent()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -64,8 +257,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'created_at': msg.created_at.isoformat(),
                 }
             )
+            return
 
-        elif msg_type == 'audio':
+        if msg_type == 'audio':
             msg_id = data.get('id')
             audio_url = data.get('audio_url', '')
             created_at = data.get('created_at', '')
@@ -82,19 +276,21 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'created_at': created_at,
                 }
             )
+            return
 
-        elif msg_type == 'typing':
+        if msg_type == 'typing':
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'user_typing',
                     'user_id': self.user.id,
                     'first_name': self.user.first_name or 'User',
-                    'is_typing': data.get('is_typing', False),
+                    'is_typing': bool(data.get('is_typing', False)),
                 }
             )
+            return
 
-        elif msg_type == 'call_offer':
+        if msg_type == 'call_offer':
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -104,8 +300,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'offer': data.get('offer'),
                 }
             )
+            return
 
-        elif msg_type == 'call_answer':
+        if msg_type == 'call_answer':
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -114,8 +311,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'answer': data.get('answer'),
                 }
             )
+            return
 
-        elif msg_type == 'ice_candidate':
+        if msg_type == 'ice_candidate':
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -124,8 +322,9 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'candidate': data.get('candidate'),
                 }
             )
+            return
 
-        elif msg_type == 'call_end':
+        if msg_type == 'call_end':
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
@@ -133,6 +332,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                     'sender_id': self.user.id,
                 }
             )
+            return
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
@@ -160,19 +360,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'user_id': event['user_id'],
             'first_name': event['first_name'],
             'is_typing': event['is_typing'],
-        }))
-
-    async def user_online(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'online',
-            'user_id': event['user_id'],
-            'first_name': event['first_name'],
-        }))
-
-    async def user_offline(self, event):
-        await self.send(text_data=json.dumps({
-            'type': 'offline',
-            'user_id': event['user_id'],
         }))
 
     async def call_offer(self, event):
@@ -208,22 +395,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             }))
 
     @database_sync_to_async
-    def get_user(self):
-        query_string = self.scope['query_string'].decode()
-        token = None
-        for param in query_string.split('&'):
-            if param.startswith('token='):
-                token = param.split('=', 1)[1]
-                break
-        if not token:
-            return None
-        try:
-            access = AccessToken(token)
-            return User.objects.get(id=access['user_id'])
-        except Exception:
-            return None
-
-    @database_sync_to_async
     def is_participant(self, user):
         return Conversation.objects.filter(id=self.conv_id, participants=user).exists()
 
@@ -232,7 +403,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         msg = Message.objects.create(
             conversation_id=self.conv_id,
             sender=self.user,
-            text=text,
+            message=text,
         )
         Activity.objects.create(
             user=self.user,
@@ -242,3 +413,13 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         Conversation.objects.filter(id=self.conv_id).update(updated_at=msg.created_at)
         return msg
+
+    @database_sync_to_async
+    def check_message_quota(self):
+        from subscriptions.services import usage_service
+        return usage_service.can_send_message(self.user)['allowed']
+
+    @database_sync_to_async
+    def record_message_sent(self):
+        from subscriptions.services import usage_service
+        usage_service.record_message_sent(self.user)

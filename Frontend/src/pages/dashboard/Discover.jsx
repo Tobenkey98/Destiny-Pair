@@ -270,7 +270,7 @@ export default function Discover() {
       ) : (
         <div className="relative flex flex-col items-center">
           {/* Carousel area */}
-          <div className="relative w-full h-[520px] sm:h-[580px] md:h-[640px]">
+          <div className="relative w-full h-[600px] sm:h-[660px] md:h-[700px]">
             <AnimatePresence>
               {profiles.map((p, i) => (
                 <ProfileCard

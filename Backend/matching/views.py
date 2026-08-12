@@ -3,6 +3,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
 from matching.models import Match
+from matching.notifications import send_like_email, send_match_email
 from matching.serializers import MatchSerializer
 from chat.models import Conversation, Message
 from accounts.models import Activity
@@ -29,6 +30,19 @@ class MatchListCreateView(generics.ListCreateAPIView):
             defaults={'status': new_status},
         )
 
+        if new_status == 'liked':
+            from subscriptions.services import usage_service
+            decision = usage_service.can_like_profile(request.user)
+            if not decision['allowed']:
+                return Response(
+                    {
+                        'error': decision['reason'],
+                        'detail': 'You have reached your daily like limit.',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            usage_service.record_like(request.user)
+
         conv_id = None
         if new_status != 'rejected':
             reverse = Match.objects.filter(
@@ -41,8 +55,19 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 participants=match.to_user
             ).first()
             if not conv:
+                from subscriptions.services import usage_service
+                decision = usage_service.can_start_conversation(request.user)
+                if not decision['allowed']:
+                    return Response(
+                        {
+                            'error': decision['reason'],
+                            'detail': 'You have reached your active conversation limit.',
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
                 conv = Conversation.objects.create()
                 conv.participants.add(match.from_user, match.to_user)
+                usage_service.sync_active_conversations(request.user)
             conv_id = conv.id
 
             if reverse:
@@ -56,7 +81,7 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 Message.objects.create(
                     conversation=conv,
                     sender=request.user,
-                    text=f"Hi {receiver_name}! You and {sender_name} have matched. Start your conversation here.",
+                    message=f"Hi {receiver_name}! You and {sender_name} have matched. Start your conversation here.",
                 )
                 conv.save(update_fields=['updated_at'])
 
@@ -72,13 +97,16 @@ class MatchListCreateView(generics.ListCreateAPIView):
                     description=f"You matched with {sender_name}!",
                     related_user=request.user,
                 )
+
+                # Email both sides the moment the match forms.
+                send_match_email(match.from_user, match.to_user)
             else:
                 sender_name = request.user.first_name or request.user.email or 'Someone'
                 receiver_name = match.to_user.first_name or match.to_user.email
                 Message.objects.create(
                     conversation=conv,
                     sender=request.user,
-                    text=f"Hi {receiver_name}! {sender_name} is interested in getting to know you. Say hello!",
+                    message=f"Hi {receiver_name}! {sender_name} is interested in getting to know you. Say hello!",
                 )
                 conv.save(update_fields=['updated_at'])
 
@@ -88,6 +116,9 @@ class MatchListCreateView(generics.ListCreateAPIView):
                     description=f"{sender_name} liked you.",
                     related_user=request.user,
                 )
+
+                # Email the recipient for every like.
+                send_like_email(request.user, match.to_user)
 
         out = MatchSerializer(match, context={'request': request}).data
         if conv_id:

@@ -17,4 +17,7 @@ urlpatterns = [
     path('forgot-password/', views.ForgotPasswordView.as_view(), name='auth-forgot-password'),
     path('reset-password/', views.ResetPasswordView.as_view(), name='auth-reset-password'),
     path('recently-verified/', views.RecentlyVerifiedView.as_view(), name='auth-recently-verified'),
+    path('legal/versions/', views.LegalVersionsView.as_view(), name='legal-versions'),
+    path('consents/', views.ConsentView.as_view(), name='consent-record'),
+    path('consents/status/', views.ConsentStatusView.as_view(), name='consent-status'),
 ]

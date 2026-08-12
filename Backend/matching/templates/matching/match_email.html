@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>It's a match!</title>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', sans-serif; background-color: #f5f2eb; margin: 0; padding: 0; }
+    .container { max-width: 480px; margin: 40px auto; background: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 20px 60px -15px rgba(0,0,0,0.1); }
+    .header { background: linear-gradient(135deg, #065F46, #7A2E3B, #C8A96E); padding: 40px 32px; text-align: center; }
+    .header h1 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 28px; color: #C8A96E; margin: 0; }
+    .header p { color: rgba(255,255,255,0.8); font-size: 14px; margin-top: 8px; }
+    .body { padding: 32px; text-align: center; }
+    .body h2 { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 24px; color: #065F46; margin: 0 0 12px; }
+    .body p { font-size: 15px; line-height: 1.6; color: #555; margin: 0 0 16px; }
+    .rings { display: inline-block; padding: 18px 26px; margin: 8px 0; }
+    .rings div, .rings span { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin: 0 6px; vertical-align: middle; }
+    .ring-a { background: #C8A96E; }
+    .ring-b { background: #065F46; }
+    .btn { display: inline-block; margin-top: 12px; padding: 14px 34px; background: linear-gradient(135deg, #065F46, #0A7A5B); color: #ffffff; text-decoration: none; border-radius: 999px; font-weight: 700; font-size: 14px; }
+    .footer { padding: 24px 32px; background: #f9f7f3; text-align: center; font-size: 12px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>DestinyPair</h1>
+      <p>Faith-Guided Marriage Matchmaking</p>
+    </div>
+    <div class="body">
+      <div class="hearts">
+        <span class="ring-a"></span><span class="ring-b"></span>
+      </div>
+      <h2>It&rsquo;s a match, {{ recipient_name }}! &#10084;</h2>
+      <p>You and <strong>{{ other_name }}</strong> are interested in each other. Fancy that &mdash; God often whispers when two hearts are ready.</p>
+      <p>Say hello and start your conversation now.</p>
+      <a class="btn" href="{{ chat_url }}">Start the Conversation</a>
+      <p style="font-size: 13px; color: #888; margin-top: 20px;">Both of you will also see this match on your dashboards.</p>
+    </div>
+    <div class="footer">
+      <p>&copy; 2026 DestinyPair.net &mdash; Connecting purposeful singles across Nigeria.</p>
+    </div>
+  </div>
+</body>
+</html>

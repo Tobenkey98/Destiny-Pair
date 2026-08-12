@@ -57,14 +57,16 @@ class AdminUserListView(ListAPIView):
         return User.objects.exclude(admin_profile__isnull=False).order_by('-date_joined')
 
     def list(self, request, *args, **kwargs):
-        queryset = self.get_queryset()
         from django.utils import timezone
         from datetime import timedelta
         cutoff = timezone.now() - timedelta(minutes=15)
-        data = self.get_serializer(queryset, many=True).data
+        queryset = self.get_queryset()
+        user_map = {u.id: u.last_login for u in queryset.only('id', 'last_login')}
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
         for item in data:
-            last_login = item.get('last_login')
-            item['is_online'] = bool(last_login and last_login > cutoff.isoformat())
+            last_login = user_map.get(item['id'])
+            item['is_online'] = bool(last_login and last_login > cutoff)
         AuditService.log(
             actor=request.user,
             action="Viewed User List",
@@ -301,6 +303,7 @@ class AdminPaymentListView(APIView):
                 'user_email': p.user.email if hasattr(p, 'user') and p.user else None,
                 'amount': str(p.amount) if hasattr(p, 'amount') else None,
                 'status': p.status if hasattr(p, 'status') else None,
+                'gateway': p.gateway if hasattr(p, 'gateway') else None,
                 'reference': p.reference if hasattr(p, 'reference') else None,
                 'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') else None,
             })
@@ -354,6 +357,53 @@ class AdminSubscriptionListView(APIView):
         )
 
         return Response(data)
+
+
+class AdminPlanListView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def get(self, request):
+        from subscriptions.models import SubscriptionPlan
+        from subscriptions.api.serializers import SubscriptionPlanSerializer
+
+        plans = SubscriptionPlan.objects.all().order_by('price')
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Plans",
+            action_type="read",
+            target_model="SubscriptionPlan",
+            request=request,
+        )
+        return Response(SubscriptionPlanSerializer(plans, many=True).data)
+
+    def patch(self, request):
+        from subscriptions.models import SubscriptionPlan
+
+        plan_id = request.data.get('id')
+        if not plan_id:
+            return Response({'error': 'id is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            plan = SubscriptionPlan.objects.get(id=plan_id)
+        except SubscriptionPlan.DoesNotExist:
+            return Response({'error': 'Plan not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        allowed = ['is_active', 'price', 'name', 'message_limit', 'like_limit_daily']
+        changed = {k: v for k, v in request.data.items() if k in allowed}
+        for k, v in changed.items():
+            setattr(plan, k, v)
+        plan.save()
+
+        AuditService.log(
+            actor=request.user,
+            action="Updated Plan",
+            action_type="update",
+            target_model="SubscriptionPlan",
+            target_id=str(plan.id),
+            changes=changed,
+            request=request,
+        )
+        from subscriptions.api.serializers import SubscriptionPlanSerializer
+        return Response(SubscriptionPlanSerializer(plan).data)
 
 
 class AdminReportListView(APIView):
@@ -515,11 +565,6 @@ class AdminSignupView(APIView):
             )
 
         if RoleService.super_admin_exists():
-            if role == 'super_admin':
-                return Response(
-                    {'error': 'A Super Admin already exists. Sign up with an invitation for other roles.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
             if not token:
                 return Response(
                     {'error': 'A valid invitation token is required to create an admin account.'},
@@ -700,6 +745,27 @@ You have been invited to join the <strong style="color:#065f46;">DestinyPair</st
             )
         except Exception:
             pass
+
+
+class AdminInvitationLookupView(APIView):
+    authentication_classes = []
+    permission_classes = []
+
+    def get(self, request):
+        token = request.query_params.get('token', '')
+        if not token:
+            return Response({'error': 'Token is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            invitation = AdminInvitation.objects.get(token=token)
+        except AdminInvitation.DoesNotExist:
+            return Response({'error': 'Invalid invitation token.'}, status=status.HTTP_404_NOT_FOUND)
+        if not invitation.is_valid:
+            return Response({'error': 'Invitation has expired or already been used.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'email': invitation.email,
+            'role': invitation.role,
+            'role_display': invitation.get_role_display(),
+        })
 
 
 class AdminInvitationRevokeView(APIView):

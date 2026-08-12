@@ -14,11 +14,11 @@ function Contact() {
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {[
-              { icon: Mail, title: "Email", body: "hello@destinypair.net", grad: "bg-emerald" },
-              { icon: Phone, title: "Call", body: "+234 800 000 0000", grad: "bg-gold" },
-              { icon: MessageCircle, title: "WhatsApp", body: "Chat with an advisor", grad: "bg-luxury" },
-              { icon: MapPin, title: "Office", body: "Victoria Island, Lagos", grad: "bg-emerald" },
-              { icon: Clock, title: "Hours", body: "Mon&ndash;Sat &bull; 9am &ndash; 6pm WAT", grad: "bg-gold" },
+              { icon: Mail, title: "Email", body: "pureintentions.globaltech@gmail.com", grad: "bg-emerald" },
+              { icon: Phone, title: "Call", body: "+234 810 701 4197", grad: "bg-gold" },
+              { icon: MessageCircle, title: "WhatsApp", body: "+234 810 701 4197", grad: "bg-luxury" },
+              { icon: MapPin, title: "Office", body: "Alakuko, Lagos", grad: "bg-emerald" },
+              { icon: Clock, title: "Hours", body: "Mon&ndash;Fri &bull; 9am &ndash; 6pm WAT", grad: "bg-gold" },
             ].map((c, i) => (
               <Reveal key={i} delay={i * 0.06}>
                 <motion.div whileHover={{ x: 6 }} className={`p-5 rounded-2xl ${c.grad} ${c.grad === "bg-gold" ? "text-[color:var(--emerald-deep)]" : "text-[color:var(--cream-soft)]"} shadow-soft flex gap-4 items-center`}>
@@ -61,7 +61,7 @@ function Contact() {
                 <div className="absolute inset-0 flex items-center justify-center text-[color:var(--gold-royal)]">
                   <div className="text-center">
                     <MapPin className="h-12 w-12 mx-auto mb-3" />
-                    <p className="font-display text-xl">Victoria Island, Lagos</p>
+                    <p className="font-display text-xl">Alakuko, Lagos</p>
                   </div>
                 </div>
               </div>

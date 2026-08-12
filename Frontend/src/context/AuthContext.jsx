@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../lib/api';
+import { api, getUserAccessToken, getUserRefreshToken } from '../lib/api';
 
 const AuthContext = createContext(null);
 
@@ -8,23 +8,24 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const saveTokens = useCallback((tokens, rememberMe) => {
-    const storage = rememberMe ? localStorage : sessionStorage;
-    storage.setItem('access_token', tokens.access);
-    storage.setItem('refresh_token', tokens.refresh);
+    sessionStorage.setItem('access_token', tokens.access);
+    sessionStorage.setItem('refresh_token', tokens.refresh);
+    sessionStorage.setItem('token_source', rememberMe ? 'both' : 'session');
     if (rememberMe) {
-      sessionStorage.removeItem('access_token');
-      sessionStorage.removeItem('refresh_token');
-    } else {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      localStorage.setItem('access_token', tokens.access);
+      localStorage.setItem('refresh_token', tokens.refresh);
     }
   }, []);
 
   const clearTokens = useCallback(() => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
+    const source = sessionStorage.getItem('token_source');
     sessionStorage.removeItem('access_token');
     sessionStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('token_source');
+    if (source === 'local' || source === 'both') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+    }
   }, []);
 
   const setAuth = useCallback((data, rememberMe) => {
@@ -34,7 +35,12 @@ export function AuthProvider({ children }) {
   }, [saveTokens]);
 
   const getToken = useCallback(() => {
-    return localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const token = getUserAccessToken();
+    if (!token) return null;
+    if (!sessionStorage.getItem('access_token')) {
+      sessionStorage.setItem('token_source', 'local');
+    }
+    return token;
   }, []);
 
   useEffect(() => {
@@ -125,7 +131,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     try {
-      const refresh = localStorage.getItem('refresh_token') || sessionStorage.getItem('refresh_token');
+      const refresh = getUserRefreshToken();
       await api.logout(refresh);
     } catch {}
     clearTokens();

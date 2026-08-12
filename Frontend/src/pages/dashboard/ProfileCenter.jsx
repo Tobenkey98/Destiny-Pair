@@ -1,18 +1,24 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import {
   User, Cross, GraduationCap, Heart, Camera, Shield,
   ChevronDown, Edit3, Check, X, Mail, Phone, MapPin, BookOpen,
-  Trash2, Star,
+  Trash2, Star, Crown,
 } from "lucide-react";
 import { FourSquare } from "react-loading-indicators";
 import { useAuth } from "../../context/AuthContext";
-import { api } from "../../lib/api";
+import { api, getUserAccessToken } from "../../lib/api";
 import { states, lgas, ethnicGroups } from "../../lib/nigeria";
 import CoverCropModal from "../../components/CoverCropModal";
 
 const QUALIFICATION_OPTIONS = ["SSCE", "OND", "HND", "B.Sc", "B.A", "B.Eng", "LLB", "MBBS", "Pharm.D", "M.Sc", "MBA", "M.Eng", "P.hd"];
+const WEIGHT_OPTIONS = Array.from({length: 171}, (_, i) => i + 30);
+const HEIGHT_OPTIONS = Array.from({length: 151}, (_, i) => i + 100);
+const COMPLEXION_OPTIONS = ["Dark", "Brown", "Fair", "Light"];
+const LOOKING_FOR_OPTIONS = ["Friendship", "Serious Relationship", "Relationship leading to Marriage"];
+const ALCOHOL_OPTIONS = ["No", "Occasionally", "Socially", "Yes"];
+const SMOKING_OPTIONS = ["No", "Occasionally", "Socially", "Yes"];
 
 const sections = [
   { id: "personal", icon: User, label: "Personal Information" },
@@ -36,6 +42,10 @@ function getSectionFields(sectionId, user) {
       { key: "gender", label: "Gender", type: "text" },
       { key: "city_state", label: "City / State", type: "city_state" },
       { key: "ethnic_group", label: "Ethnic Group", type: "select", options: ethnicGroups },
+      { key: "weight", label: "Weight (kg)", type: "select", options: WEIGHT_OPTIONS },
+      { key: "height", label: "Height (cm)", type: "select", options: HEIGHT_OPTIONS },
+      { key: "complexion", label: "Complexion", type: "select", options: COMPLEXION_OPTIONS },
+      { key: "looking_for", label: "Looking For", type: "select", options: LOOKING_FOR_OPTIONS },
     ],
     faith: [
       { key: "faith", label: "Faith", type: "text" },
@@ -50,15 +60,28 @@ function getSectionFields(sectionId, user) {
       { key: "short_bio", label: "Short Bio", type: "textarea" },
       { key: "interests", label: "Interests", type: "textarea" },
       { key: "hobbies", label: "Hobbies", type: "textarea" },
+      { key: "personality_traits", label: "Personality Traits", type: "textarea" },
+      { key: "languages_spoken", label: "Languages Spoken", type: "textarea" },
       { key: "about_self", label: "About Me", type: "textarea" },
       { key: "seeking_description", label: "What I Seek", type: "textarea" },
     ],
     preferences: [
+      { key: "marital_status", label: "Marital Status", type: "select", options: ["Single", "Never Married", "Divorced", "Widowed"] },
+      { key: "preferred_location", label: "Preferred Locations", type: "multiselect", options: states },
+      { key: "preferred_tribe", label: "Preferred Tribes", type: "multiselect", options: ethnicGroups },
+      { key: "preferred_age_min", label: "Preferred Age (Min)", type: "select", options: AGE_OPTIONS },
+      { key: "preferred_age_max", label: "Preferred Age (Max)", type: "select", options: AGE_OPTIONS },
+      { key: "preferred_height_min", label: "Preferred Height (Min, cm)", type: "select", options: HEIGHT_OPTIONS },
+      { key: "preferred_height_max", label: "Preferred Height (Max, cm)", type: "select", options: HEIGHT_OPTIONS },
+      { key: "willing_to_relocate", label: "Willing to Relocate", type: "yesno" },
+      { key: "has_children", label: "Has Children", type: "yesno" },
+      { key: "number_of_children", label: "Number of Children", type: "select", options: [1,2,3,4,5,6,7,8,9,10], hidden: user?.has_children !== true },
+      { key: "alcohol", label: "Alcohol", type: "select", options: ALCOHOL_OPTIONS },
+      { key: "smoking", label: "Smoking", type: "select", options: SMOKING_OPTIONS },
+      { key: "deal_breakers", label: "Deal Breakers", type: "textarea" },
       { key: "genotype", label: "Genotype", type: "select", options: ["AA", "AS", "SS", "AC", "SC", "CC"] },
       { key: "blood_group", label: "Blood Group", type: "select", options: ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] },
       { key: "love_language", label: "Love Language", type: "text" },
-      { key: "preferred_age_min", label: "Preferred Age (Min)", type: "select", options: AGE_OPTIONS },
-      { key: "preferred_age_max", label: "Preferred Age (Max)", type: "select", options: AGE_OPTIONS },
       { key: "is_verified", label: "Email Verified", type: "badge" },
       { key: "is_profile_completed", label: "Profile Completed", type: "badge" },
       { key: "date_joined", label: "Member Since", type: "date_readonly" },
@@ -70,8 +93,23 @@ function getSectionFields(sectionId, user) {
 function formatValue(user, key) {
   if (key === "date_joined") return new Date(user.date_joined).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
   if (key === "date_of_birth") return user.date_of_birth || "—";
-  if (key === "is_verified" || key === "is_profile_completed") return user[key] ? "Yes" : "No";
+  if (key === "is_verified" || key === "is_profile_completed" || key === "has_children" || key === "willing_to_relocate") {
+    const val = user[key];
+    if (val === null || val === undefined) return "—";
+    return val ? "Yes" : "No";
+  }
   if (key === "denomination") return user.denomination_name || "—";
+  if (key === "weight" || key === "height" || key === "preferred_height_min" || key === "preferred_height_max" || key === "number_of_children") {
+    const val = user[key];
+    if (val === null || val === undefined) return "—";
+    return val;
+  }
+  if (key === "preferred_tribe" || key === "preferred_location") {
+    const val = user[key];
+    if (!val) return "—";
+    const items = val.split(", ").filter(Boolean);
+    return items.length > 0 ? items.join(", ") : "—";
+  }
   const val = user?.[key];
   if (val === null || val === undefined || val === "") return "—";
   return val;
@@ -191,6 +229,10 @@ function ProfileSection({ section, isOpen, onToggle, user, onUpdate, photos, onU
         } else {
           await onUpdate({ denomination: null });
         }
+      } else if (editValue === "true" || editValue === "false") {
+        await onUpdate({ [key]: editValue === "true" });
+      } else if (["weight","height","number_of_children","preferred_height_min","preferred_height_max","preferred_age_min","preferred_age_max"].includes(key) && editValue !== "") {
+        await onUpdate({ [key]: parseInt(editValue, 10) });
       } else {
         await onUpdate({ [key]: editValue });
       }
@@ -211,9 +253,19 @@ function ProfileSection({ section, isOpen, onToggle, user, onUpdate, photos, onU
     } else if (key === "denomination") {
       setEditValue(currentValue ? String(currentValue) : "");
       setEditCustomDenom("");
+    } else if (currentValue === true || currentValue === false) {
+      setEditValue(currentValue ? "true" : "false");
     } else {
       setEditValue(currentValue !== null && currentValue !== undefined ? String(currentValue) : "");
     }
+  }
+
+  function toggleMultiOption(value) {
+    const current = editValue ? editValue.split(", ") : [];
+    const idx = current.indexOf(value);
+    if (idx > -1) current.splice(idx, 1);
+    else current.push(value);
+    setEditValue(current.join(", "));
   }
 
   return (
@@ -268,6 +320,7 @@ function ProfileSection({ section, isOpen, onToggle, user, onUpdate, photos, onU
                 </>
               ) : (
                 fields.map((field) => {
+                  if (field.hidden) return null;
                   const currentValue = user?.[field.key];
                   const displayValue = formatValue(user, field.key);
                   const isEditing = editing === field.key;
@@ -311,6 +364,37 @@ function ProfileSection({ section, isOpen, onToggle, user, onUpdate, photos, onU
                               {editValue === "others" && (
                                 <input type="text" value={editCustomDenom} onChange={e => setEditCustomDenom(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] outline-none text-sm" placeholder="Enter your denomination" />
                               )}
+                            </div>
+                          ) : field.type === "yesno" ? (
+                            <select
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="flex-1 px-3 py-2 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] outline-none text-sm"
+                            >
+                              <option value="">Select</option>
+                              <option value="true">Yes</option>
+                              <option value="false">No</option>
+                            </select>
+                          ) : field.type === "multiselect" ? (
+                            <div className="flex-1">
+                              <div className="flex flex-wrap gap-1.5 mb-2">
+                                {(editValue ? editValue.split(", ").filter(Boolean) : []).map(v => (
+                                  <span key={v} className="px-2 py-0.5 rounded-full bg-emerald/10 text-[10px] font-medium text-emerald-dark flex items-center gap-1">
+                                    {v}
+                                    <button type="button" onClick={() => toggleMultiOption(v)} className="hover:text-destructive">&times;</button>
+                                  </span>
+                                ))}
+                              </div>
+                              <select
+                                value=""
+                                onChange={(e) => { if (e.target.value) toggleMultiOption(e.target.value); e.target.value = ""; }}
+                                className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] outline-none text-sm"
+                              >
+                                <option value="">Add tribe...</option>
+                                {field.options.filter(o => !editValue?.split(", ").includes(o)).map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
                             </div>
                           ) : field.type === "select" ? (
                             <select
@@ -385,6 +469,14 @@ export default function ProfileCenter() {
   const coverRef = useRef(null);
   const [coverUploading, setCoverUploading] = useState(false);
   const [cropModal, setCropModal] = useState(null);
+  const [membership, setMembership] = useState(null);
+
+  useEffect(() => {
+    api.getCurrentSubscription().then(setMembership).catch(() => {});
+  }, []);
+
+  const plan = membership?.plan || null;
+  const subActive = membership?.subscription?.status === "active";
 
   useEffect(() => {
     api.getPhotos().then((data) => setPhotos(Array.isArray(data) ? data : [])).catch(() => {});
@@ -445,7 +537,7 @@ export default function ProfileCenter() {
     try {
       const fd = new FormData();
       fd.append('image', croppedBlob, 'cover.jpg');
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const token = getUserAccessToken();
       await fetch('/api/auth/cover-photo/', {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -468,7 +560,7 @@ export default function ProfileCenter() {
           <div className="rounded-[2.5rem] overflow-hidden">
             <div ref={coverRef} className="relative w-full bg-gradient-to-br from-emerald/30 to-gold/20">
               {coverPhoto ? (
-                <img src={coverPhoto} alt="Cover" className="block w-full h-[200px] sm:h-[320px] md:h-[420px] object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                <img src={coverPhoto} alt="Cover" className="block w-full h-auto max-h-[200px] sm:max-h-[320px] md:max-h-[420px] object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
               ) : (
                 <div className="w-full h-[200px] sm:h-[320px] md:h-[420px] pattern-dots opacity-[0.08]" />
               )}
@@ -518,7 +610,20 @@ export default function ProfileCenter() {
       {/* Name and info */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-5 mt-4 mb-6">
         <div className="flex-1 min-w-0">
-          <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground truncate">{fullName}</h1>
+          <div className="flex flex-wrap items-center gap-2.5">
+            <h1 className="font-display text-2xl sm:text-3xl md:text-4xl font-bold text-foreground truncate">{fullName}</h1>
+            <Link
+              to="/membership"
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide shadow-sm transition hover:scale-105 ${
+                plan && subActive
+                  ? "bg-gradient-to-r from-emerald to-gold-royal text-white"
+                  : "bg-foreground/5 text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Crown className="h-3.5 w-3.5" />
+              {plan && subActive ? `${plan.name} · Active` : plan ? `${plan.name} · Inactive` : "Free Member"}
+            </Link>
+          </div>
           <p className="text-muted-foreground flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 mt-1">
             <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5 shrink-0" /> {user.city_state || "Location not set"}</span>
             <span className="flex items-center gap-1 min-w-0"><Mail className="h-3.5 w-3.5 shrink-0" /> <span className="truncate">{user.email}</span></span>

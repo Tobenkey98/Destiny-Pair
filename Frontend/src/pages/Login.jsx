@@ -30,7 +30,15 @@ function Login() {
     try {
       await login({ email, password, remember_me: rememberMe });
       const pending = sessionStorage.getItem("pending_profile");
-      navigate(pending ? "/social-complete" : "/dashboard");
+      const checkoutIntent = sessionStorage.getItem("checkout_intent");
+      if (checkoutIntent) {
+        sessionStorage.removeItem("checkout_intent");
+        navigate(checkoutIntent);
+      } else if (pending) {
+        navigate("/social-complete");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       if (err.data?.needs_verification) {
         setNeedsVerification(true);
@@ -54,7 +62,13 @@ function Login() {
         payload = await loginWithFacebook();
       }
       const result = await socialAuth(payload);
-      navigate(result.created ? "/social-complete" : "/dashboard");
+      const checkoutIntent = sessionStorage.getItem("checkout_intent");
+      if (checkoutIntent) {
+        sessionStorage.removeItem("checkout_intent");
+        navigate(checkoutIntent);
+      } else {
+        navigate(result.created ? "/social-complete" : "/dashboard");
+      }
     } catch (err) {
       setError(err.data?.error || err.message || `${provider} sign in failed.`);
     } finally {

@@ -227,11 +227,9 @@ export default function AdminAdmins() {
                   <label className="block text-sm font-semibold mb-1.5">Department</label>
                   <select value={inviteForm.department} onChange={e => setInviteForm(f => ({ ...f, department: e.target.value }))} className="w-full px-4 py-2.5 rounded-xl bg-background border border-border focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none text-sm">
                     <option value="">Select department</option>
-                    <option value="management">Management</option>
                     <option value="operations">Operations</option>
                     <option value="moderation">Moderation</option>
                     <option value="counselling">Counselling</option>
-                    <option value="support">Support</option>
                   </select>
                 </div>
                 <button type="submit" disabled={inviting} className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition disabled:opacity-50 inline-flex items-center justify-center gap-2">

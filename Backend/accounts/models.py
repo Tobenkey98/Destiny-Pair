@@ -4,6 +4,42 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 
+class UserConsent(models.Model):
+    """A user's acceptance of a legal document version.
+
+    Records are immutable history: every acceptance creates a new row,
+    so re-consenting to an updated document never overwrites an older one.
+    """
+
+    CONSENT_TYPE_CHOICES = [
+        ('TERMS_OF_USE', 'Terms of Use'),
+        ('PRIVACY_POLICY', 'Privacy Policy'),
+        ('REFUND_POLICY', 'Refund & Cancellation Policy'),
+    ]
+
+    user = models.ForeignKey(
+        'accounts.User',
+        on_delete=models.CASCADE,
+        related_name='consents',
+    )
+    consent_type = models.CharField(max_length=20, choices=CONSENT_TYPE_CHOICES)
+    document_version = models.CharField(max_length=20, default='1.0')
+    accepted = models.BooleanField(default=True)
+    accepted_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(blank=True, default='')
+
+    class Meta:
+        ordering = ['-accepted_at']
+        indexes = [
+            models.Index(fields=['user', 'consent_type']),
+            models.Index(fields=['user', 'consent_type', '-accepted_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.user} — {self.consent_type} v{self.document_version}'
+
+
 class User(AbstractUser):
     username = models.CharField(max_length=500, blank=True, null=True)
     email = models.EmailField(max_length=255, blank=True, null=True, unique=True)
@@ -52,6 +88,23 @@ class User(AbstractUser):
     state_of_origin = models.CharField(max_length=255, blank=True)
 
     ethnic_group = models.CharField(max_length=255, blank=True)
+
+    weight = models.IntegerField(null=True, blank=True)
+    height = models.IntegerField(null=True, blank=True)
+    complexion = models.CharField(max_length=50, blank=True)
+    looking_for = models.CharField(max_length=100, blank=True)
+    preferred_location = models.TextField(blank=True)
+    deal_breakers = models.TextField(blank=True)
+    willing_to_relocate = models.BooleanField(null=True, blank=True)
+    has_children = models.BooleanField(null=True, blank=True)
+    number_of_children = models.IntegerField(null=True, blank=True)
+    languages_spoken = models.TextField(blank=True)
+    personality_traits = models.TextField(blank=True)
+    alcohol = models.CharField(max_length=50, blank=True)
+    smoking = models.CharField(max_length=50, blank=True)
+    preferred_height_min = models.IntegerField(null=True, blank=True)
+    preferred_height_max = models.IntegerField(null=True, blank=True)
+    preferred_tribe = models.TextField(blank=True)
 
     about_self = models.TextField(blank=True)
     seeking_description = models.TextField(blank=True)

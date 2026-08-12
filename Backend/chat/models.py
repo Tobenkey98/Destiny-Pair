@@ -34,6 +34,12 @@ class Message(models.Model):
 
     message = models.TextField()
 
+    audio = models.FileField(
+        upload_to='chat/audio/',
+        null=True,
+        blank=True,
+    )
+
     is_read = models.BooleanField(
         default=False
     )

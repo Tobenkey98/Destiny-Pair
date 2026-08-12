@@ -58,6 +58,13 @@ class UserSerializer(serializers.ModelSerializer):
             'is_verified', 'is_profile_completed',
             'marital_status', 'state_of_residence', 'state_of_origin',
             'ethnic_group',
+            'weight', 'height', 'complexion', 'looking_for',
+            'preferred_location', 'deal_breakers',
+            'willing_to_relocate', 'has_children', 'number_of_children',
+            'languages_spoken', 'personality_traits',
+            'alcohol', 'smoking',
+            'preferred_height_min', 'preferred_height_max',
+            'preferred_tribe',
             'date_joined', 'primary_photo', 'cover_photo',
             'custom_denomination',
         )
@@ -103,9 +110,12 @@ class DiscoverSerializer(serializers.ModelSerializer):
             'city_state', 'faith', 'denomination', 'denomination_name',
             'highest_qualification', 'profession', 'about_self', 'love_language',
             'interests', 'hobbies', 'short_bio',
-            'ethnic_group', 'marital_status', 'place_of_worship',
+            'ethnic_group', 'marital_status',
             'state_of_residence', 'state_of_origin',
             'seeking_description',
+            'weight', 'height', 'complexion', 'alcohol', 'smoking',
+            'preferred_location', 'preferred_height_min', 'preferred_height_max',
+            'preferred_tribe',
             'primary_photo', 'is_verified',
         )
 

@@ -3,6 +3,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Mosaic } from "react-loading-indicators";
 import { AdminProvider, useAdmin } from "../../context/AdminContext";
+import { getAdminAccessToken } from "../../lib/api";
 import { AdminSidebar, MobileNav } from "../../components/admin/sidebar";
 import { AdminTopbar } from "../../components/admin/topbar";
 import { Sheet, SheetContent } from "../../components/ui/sheet";
@@ -33,7 +34,7 @@ const ROLE_RESTRICTED_ROUTES = {
 };
 
 function getToken() {
-  return localStorage.getItem('admin_access_token') || sessionStorage.getItem('admin_access_token');
+  return getAdminAccessToken();
 }
 
 function AdminGuard({ children }) {

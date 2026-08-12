@@ -20,6 +20,7 @@ from .serializers import (
     UserSerializer, EmailSerializer, VerifyCodeSerializer,
     DiscoverSerializer, ActivitySerializer,
 )
+from .legal import DOCUMENT_VERSIONS, record_consent, consents_status
 from .models import Activity
 from matching.models import Match
 
@@ -64,6 +65,14 @@ class SignupView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        consent_terms = bool(request.data.get('consent_terms'))
+        consent_privacy = bool(request.data.get('consent_privacy'))
+        if not consent_terms or not consent_privacy:
+            return Response(
+                {'error': 'You must accept the Terms & Conditions and acknowledge the Privacy Policy to create an account.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         serializer = SignupSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -78,6 +87,8 @@ class SignupView(APIView):
             user.first_name = first_name
             user.set_password(password)
             user.save()
+            record_consent(user, 'TERMS_OF_USE', request)
+            record_consent(user, 'PRIVACY_POLICY', request)
             send_verification_email(user)
             return Response({
                 'user': UserSerializer(user, context={'request': request}).data,
@@ -90,6 +101,8 @@ class SignupView(APIView):
         user.set_password(password)
         user.is_active = True
         user.save()
+        record_consent(user, 'TERMS', request)
+        record_consent(user, 'PRIVACY', request)
         send_verification_email(user)
         return Response({
             'user': UserSerializer(user, context={'request': request}).data,
@@ -209,6 +222,8 @@ class SocialAuthView(APIView):
             )
             created = True
 
+        user.last_login = timezone.now()
+        user.save(update_fields=['last_login'])
         tokens = get_tokens_for_user(user)
         return Response({
             'user': UserSerializer(user, context={'request': request}).data,
@@ -313,22 +328,35 @@ class SuggestionsView(APIView):
         return Response({'suggestions': suggestions[:20]})
 
 
-class DiscoverView(generics.ListAPIView):
-    serializer_class = DiscoverSerializer
+class DiscoverView(APIView):
+    """GET /auth/discover/
+
+    Returns qualified opposite-gender candidates ranked by compatibility,
+    each carrying a ``compatibility_score`` and ``recommendation_level`` so
+    the discover cards can show a live match percentage.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        qs = User.objects.filter(is_verified=True).exclude(id=user.id)
-        if user.faith:
-            qs = qs.filter(faith=user.faith)
-        if user.gender == 'Male':
-            qs = qs.filter(gender='Female')
-        elif user.gender == 'Female':
-            qs = qs.filter(gender='Male')
-        interacted = Match.objects.filter(from_user=user).values_list('to_user_id', flat=True)
-        qs = qs.exclude(id__in=interacted)
-        return qs
+    def get(self, request):
+        from django.utils import timezone
+        from matching.services.filter_engine import get_qualified_candidates
+        from matching.services.ranking_engine import rank_candidates
+
+        user = request.user
+        candidates = get_qualified_candidates(user)
+        ranked = rank_candidates(user, candidates)
+        now = timezone.now()
+
+        results = []
+        for item in ranked[:100]:
+            candidate = item.pop('user')
+            data = DiscoverSerializer(candidate, context={'request': request}).data
+            last_login = candidate.last_login
+            data['is_online'] = bool(last_login and (now - last_login).total_seconds() < 300)
+            data['compatibility_score'] = item['compatibility_score']
+            data['recommendation_level'] = item['recommendation_level']
+            results.append(data)
+        return Response(results)
 
 
 class ActivityListView(generics.ListAPIView):
@@ -435,3 +463,43 @@ class RecentlyVerifiedView(generics.ListAPIView):
 
     def get_queryset(self):
         return User.objects.filter(is_verified=True).order_by('-date_joined')[:6]
+
+
+class LegalVersionsView(APIView):
+    """Public: current published versions of the legal documents."""
+
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        return Response(DOCUMENT_VERSIONS)
+
+
+class ConsentView(APIView):
+    """Authenticated: record acceptance of a legal document version."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        consent_type = (request.data.get('consent_type') or '').upper().strip()
+        if consent_type not in DOCUMENT_VERSIONS:
+            return Response({'error': 'INVALID_CONSENT_TYPE'}, status=status.HTTP_400_BAD_REQUEST)
+
+        accepted = request.data.get('accepted', True)
+        if not accepted:
+            return Response({'error': 'DECLINED'}, status=status.HTTP_400_BAD_REQUEST)
+
+        record = record_consent(request.user, consent_type, request)
+        return Response({
+            'consent_type': record.consent_type,
+            'document_version': record.document_version,
+            'accepted_at': record.accepted_at.isoformat(),
+        }, status=status.HTTP_201_CREATED)
+
+
+class ConsentStatusView(APIView):
+    """Authenticated: latest acceptance status per legal document."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response(consents_status(request.user))

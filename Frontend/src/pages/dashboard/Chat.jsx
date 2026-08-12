@@ -8,9 +8,11 @@ import {
 } from "lucide-react";
 import { FourSquare } from "react-loading-indicators";
 import { useAuth } from "../../context/AuthContext";
-import { api } from "../../lib/api";
+import { api, getUserAccessToken } from "../../lib/api";
 
 const WS_BASE = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/chat/`;
+const WS_PRESENCE = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/presence/`;
+const wsAuth = (t) => [`Bearer.${t}`, 'dp'];
 
 function ConversationList({ conversations, activeId, setActiveId, onlineUsers, currentUserId }) {
   if (conversations.length === 0) {
@@ -278,7 +280,7 @@ export default function Chat() {
   const [token, setToken] = useState("");
 
   useEffect(() => {
-    const t = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+    const t = getUserAccessToken();
     setToken(t || "");
   }, []);
 
@@ -303,15 +305,10 @@ export default function Chat() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
-  // WebSocket connection
+  // Shared WebSocket message handler — always reads the latest closures.
+  const wsMessageRef = useRef(() => {});
   useEffect(() => {
-    if (!activeConvId || !token) return;
-    const socket = new WebSocket(`${WS_BASE}${activeConvId}/?token=${token}`);
-
-    socket.onopen = () => console.log("WS connected");
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+    wsMessageRef.current = (data) => {
       switch (data.type) {
         case 'message':
           setMessages(prev => [...prev, {
@@ -337,6 +334,9 @@ export default function Chat() {
         case 'offline':
           setOnlineUsers(prev => { const n = new Set(prev); n.delete(data.user_id); return n; });
           break;
+        case 'presence_snapshot':
+          setOnlineUsers(prev => new Set([...prev, ...(data.online || [])]));
+          break;
         case 'typing':
           setTypingUsers(prev => {
             const n = new Set(prev);
@@ -357,10 +357,47 @@ export default function Chat() {
         case 'call_end':
           endCall();
           break;
+        default:
+          break;
       }
     };
+  });
 
-    socket.onclose = () => console.log("WS disconnected");
+  // Presence socket — stays connected for the lifetime of the chat page so
+  // online/offline status is always known, even before opening a conversation.
+  useEffect(() => {
+    if (!token) return;
+    let socket = null;
+    let disposed = false;
+    let retries = 0;
+
+    const connectPresence = () => {
+      if (disposed) return;
+      socket = new WebSocket(WS_PRESENCE, wsAuth(token));
+      socket.onopen = () => { retries = 0; };
+      socket.onmessage = (event) => {
+        try { wsMessageRef.current(JSON.parse(event.data)); } catch { /* ignore malformed frames */ }
+      };
+      socket.onclose = () => {
+        if (disposed) return;
+        const delay = Math.min(1000 * 2 ** retries, 15000);
+        retries += 1;
+        setTimeout(connectPresence, delay);
+      };
+    };
+
+    connectPresence();
+    return () => { disposed = true; if (socket) socket.close(); };
+  }, [token]);
+
+  // Conversation socket — bound to the active conversation for messaging.
+  useEffect(() => {
+    if (!activeConvId || !token) return;
+    const socket = new WebSocket(`${WS_BASE}${activeConvId}/`, wsAuth(token));
+
+    socket.onmessage = (event) => {
+      try { wsMessageRef.current(JSON.parse(event.data)); } catch { /* ignore malformed frames */ }
+    };
 
     setWs(socket);
     return () => socket.close();

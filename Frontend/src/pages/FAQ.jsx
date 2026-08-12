@@ -1,57 +1,131 @@
-import { useState } from "react";
-import { Search } from "lucide-react";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "../components/ui/accordion";
-import { PageHero, Reveal } from "../components/Section";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { MessageCircleQuestion, SearchX } from "lucide-react";
+import { motion } from "framer-motion";
+import { Accordion } from "../components/ui/accordion";
+import FAQSearch from "../components/faq/FAQSearch";
+import FAQCategory from "../components/faq/FAQCategory";
+import FAQItem from "../components/faq/FAQItem";
+import { faqCategories } from "../legalContent/faq";
+import { useSEO } from "../hooks/useSEO";
 
-const faqs = [
-  { cat: "Getting Started", q: "Who can join DestinyPair?", a: "Serious Christian singles in Nigeria who are seeking marriage. Members must be 21+ and willing to undergo faith verification." },
-  { cat: "Getting Started", q: "Is DestinyPair a dating app?", a: "No. We are a marriage facilitation platform. Our members are not browsing for casual relationships &mdash; they are seeking covenant unions." },
-  { cat: "Membership", q: "What's the difference between plans?", a: "Essential gives you verified browsing. Premium Plus adds a dedicated matchmaker and counselling. Concierge provides full white-glove service." },
-  { cat: "Membership", q: "Can I cancel anytime?", a: "Yes. You may pause or cancel anytime from your account. Refunds follow our published policy." },
-  { cat: "Faith", q: "How is faith verified?", a: "Through a combination of profile review, references where appropriate, and conversations with our vetting team." },
-  { cat: "Faith", q: "Do you allow interfaith matches?", a: "No. We honor the conviction of both faiths that marriage is best built on shared belief." },
-  { cat: "Privacy", q: "Who sees my profile?", a: "Only members within your selected filters who you choose to reveal yourself to. You control your visibility." },
-  { cat: "Privacy", q: "Are my conversations private?", a: "Yes. Conversations are encrypted, never sold, and never shared outside the platform." },
-];
+function normalize(text) {
+  return text.toLowerCase().trim();
+}
+
+function NoResults({ query, onClear }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="text-center py-16 max-w-md mx-auto"
+    >
+      <div className="h-16 w-16 rounded-full bg-emerald/10 flex items-center justify-center mx-auto mb-4">
+        <SearchX className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <h3 className="font-display text-xl font-bold text-foreground">No results found</h3>
+      <p className="mt-2 text-sm text-muted-foreground">
+        Nothing matches &ldquo;{query}&rdquo;. Try a different keyword, or browse the categories below.
+      </p>
+      <button
+        onClick={onClear}
+        className="mt-5 px-5 py-2.5 rounded-full bg-emerald text-white text-sm font-semibold hover:bg-emerald/90 transition"
+      >
+        Clear search
+      </button>
+    </motion.div>
+  );
+}
 
 function FAQ() {
-  const [q, setQ] = useState("");
-  const [cat, setCat] = useState("All");
-  const cats = ["All", ...Array.from(new Set(faqs.map(f => f.cat)))];
-  const filtered = faqs.filter(f => (cat === "All" || f.cat === cat) && (f.q.toLowerCase().includes(q.toLowerCase()) || f.a.toLowerCase().includes(q.toLowerCase())));
+  const [query, setQuery] = useState("");
+  const q = normalize(query);
+
+  const filtered = useMemo(() => {
+    if (!q) return faqCategories;
+    return faqCategories
+      .map((cat) => ({
+        ...cat,
+        items: cat.items.filter(
+          (item) =>
+            normalize(item.q).includes(q) ||
+            normalize(item.a).includes(q) ||
+            normalize(cat.label).includes(q),
+        ),
+      }))
+      .filter((cat) => cat.items.length > 0);
+  }, [q]);
+
+  const total = filtered.reduce((sum, cat) => sum + cat.items.length, 0);
+
+  useSEO({
+    title: "DestinyPair Frequently Asked Questions",
+    description:
+      "Answers to common questions about DestinyPair — membership, matchmaking, messaging, subscriptions, calls, counselling, safety and payments.",
+    canonical: `${window.location.origin}/faq`,
+  });
 
   return (
-    <>
-      <PageHero eyebrow="FAQ" title="Questions, answered with care." subtitle="Everything you need to know before beginning your journey." />
+    <section className="pt-28 pb-24 bg-hero">
+      <div className="max-w-4xl mx-auto px-6">
+        {/* Header */}
+        <motion.header
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="text-center mb-12"
+        >
+          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald/10 text-xs font-bold uppercase tracking-widest text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)]">
+            <MessageCircleQuestion className="h-3.5 w-3.5" /> Help Centre
+          </span>
+          <h1 className="mt-5 font-display text-4xl md:text-5xl font-bold text-gradient-luxury">
+            Frequently Asked Questions
+          </h1>
+          <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
+            Everything you need to know before and after joining — or search for something specific.
+          </p>
+        </motion.header>
 
-      <section className="py-20">
-        <div className="max-w-3xl mx-auto px-6">
-          <Reveal>
-            <div className="relative mb-6">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              <input value={q} onChange={e => setQ(e.target.value)} placeholder="Search questions..." className="w-full pl-14 pr-5 py-4 rounded-full bg-background border border-border focus:border-[color:var(--gold-royal)] focus:ring-2 focus:ring-[color:var(--gold-royal)]/20 outline-none transition" />
-            </div>
-            <div className="flex flex-wrap gap-2 mb-8">
-              {cats.map(c => (
-                <button key={c} onClick={() => setCat(c)} className={`px-4 py-2 rounded-full text-sm font-semibold transition ${cat === c ? "bg-emerald text-[color:var(--gold-royal)] shadow-soft" : "glass hover:bg-secondary"}`}>{c}</button>
-              ))}
-            </div>
-          </Reveal>
+        <FAQSearch query={query} onChange={setQuery} />
 
-          <Reveal>
-            <Accordion type="single" collapsible className="space-y-3">
-              {filtered.map((f, i) => (
-                <AccordionItem key={i} value={`i${i}`} className="rounded-2xl bg-background border border-border px-6 shadow-soft data-[state=open]:shadow-luxe">
-                  <AccordionTrigger className="font-display text-lg font-semibold text-left hover:no-underline">{f.q}</AccordionTrigger>
-                  <AccordionContent className="text-muted-foreground leading-relaxed">{f.a}</AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-            {filtered.length === 0 && <p className="text-center text-muted-foreground py-10">No questions match your search.</p>}
-          </Reveal>
+        {/* Results */}
+        <div className="mt-12">
+          {total === 0 ? (
+            <NoResults query={query} onClear={() => setQuery("")} />
+          ) : (
+            filtered.map((category) => (
+              <FAQCategory key={category.id} category={category}>
+                <Accordion type="single" collapsible className="space-y-3">
+                  {category.items.map((item, i) => (
+                    <FAQItem key={item.q} item={item} index={i} />
+                  ))}
+                </Accordion>
+              </FAQCategory>
+            ))
+          )}
         </div>
-      </section>
-    </>
+
+        {/* Still stuck? */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.4 }}
+          className="mt-16 p-8 rounded-3xl bg-luxury text-[color:var(--cream-soft)] shadow-luxe text-center"
+        >
+          <h2 className="font-display text-2xl font-bold text-gradient-gold">Still have questions?</h2>
+          <p className="mt-2 text-sm text-[color:var(--cream-soft)]/80 max-w-xl mx-auto">
+            Our support team is happy to help. Reach us anytime and we&rsquo;ll respond as soon as we can.
+          </p>
+          <Link
+            to="/contact"
+            className="mt-6 inline-block px-8 py-3.5 rounded-full bg-gold text-[color:var(--emerald-deep)] font-bold shadow-glow hover:scale-105 transition"
+          >
+            Contact Support
+          </Link>
+        </motion.div>
+      </div>
+    </section>
   );
 }
 

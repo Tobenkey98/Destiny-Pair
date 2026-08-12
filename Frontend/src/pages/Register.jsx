@@ -123,7 +123,14 @@ function Register() {
     setLoading(true);
     setError("");
     try {
-      await signup({ email: form.email, password: form.password, password2: form.password2, first_name: form.first_name.trim() || "User" });
+      await signup({
+        email: form.email,
+        password: form.password,
+        password2: form.password2,
+        first_name: form.first_name.trim() || "User",
+        consent_terms: form.consent2 && form.consent3,
+        consent_privacy: form.consent2 && form.consent3,
+      });
       const denominationId = form.denomination === "others" ? 29 : (form.denomination || "");
       const pending = {
         last_name: form.last_name, phone: form.phone,
@@ -371,10 +378,10 @@ function Register() {
                     )}
                     {step === 6 && (
                       <div className="space-y-5">
-                        <p className="text-muted-foreground">By creating an account, you affirm your sincere intent for marriage and consent to our values, privacy, and moderation standards.</p>
-                        <label className="flex gap-3 items-start cursor-pointer"><input type="checkbox" className="mt-1" checked={form.consent1} onChange={e => set("consent1", e.target.checked)} /> <span className="text-sm">I am 21+ and seeking marriage.</span></label>
-                        <label className="flex gap-3 items-start cursor-pointer"><input type="checkbox" className="mt-1" checked={form.consent2} onChange={e => set("consent2", e.target.checked)} /> <span className="text-sm">I agree to the <Link to="/faith-values" className="underline font-semibold">Values</Link> and <Link to="/privacy" className="underline font-semibold">Privacy Policy</Link>.</span></label>
-                        <label className="flex gap-3 items-start cursor-pointer"><input type="checkbox" className="mt-1" checked={form.consent3} onChange={e => set("consent3", e.target.checked)} /> <span className="text-sm">I consent to faith verification.</span></label>
+                        <p className="text-muted-foreground">To create your account, please review and accept the following:</p>
+                        <label className="flex gap-3 items-start cursor-pointer"><input type="checkbox" className="mt-1" checked={form.consent1} onChange={e => set("consent1", e.target.checked)} /> <span className="text-sm">I confirm that I am single and legally eligible to use DestinyPair.</span></label>
+                        <label className="flex gap-3 items-start cursor-pointer"><input type="checkbox" className="mt-1" checked={form.consent2} onChange={e => set("consent2", e.target.checked)} /> <span className="text-sm">I agree to the <Link to="/terms-of-use" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Terms of Use</Link> and <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Privacy Policy</Link>.</span></label>
+                        <label className="flex gap-3 items-start cursor-pointer"><input type="checkbox" className="mt-1" checked={form.consent3} onChange={e => set("consent3", e.target.checked)} /> <span className="text-sm">I consent to the processing of my personal data as described in the <Link to="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline font-semibold">Privacy Policy</Link>.</span></label>
                         {fieldErrors.consent && <p className="text-xs text-destructive">{fieldErrors.consent}</p>}
                       </div>
                     )}

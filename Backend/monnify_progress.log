@@ -1,0 +1,5 @@
+1 sandbox=True base=https://sandbox.monnify.com contract=True
+2 token OK 6.62s eyJhbGciOiJS...
+3 user 202 plan premium
+4 init OK 0.56s -> {'transactionReference': 'MNFY|62|20260807212321|000805', 'paymentReference': 'DP-PROBE-000123', 'merchantName': 'Tobenkey Technologies', 'apiKey': 'MK_TEST_T5UNCLYYCA', 'redirectUrl': 'http://localho
+5 done

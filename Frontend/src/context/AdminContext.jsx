@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { api } from '../lib/api';
+import { api, getAdminAccessToken, getAdminRefreshToken } from '../lib/api';
 
 const AdminContext = createContext(null);
 
@@ -61,27 +61,32 @@ const ROUTE_ROLE_MAP = {
 };
 
 function getToken() {
-  return localStorage.getItem('admin_access_token') || sessionStorage.getItem('admin_access_token');
+  const token = getAdminAccessToken();
+  if (token && !sessionStorage.getItem('admin_access_token')) {
+    sessionStorage.setItem('admin_source', 'local');
+  }
+  return token;
 }
 
 function saveTokens(tokens, rememberMe) {
-  const storage = rememberMe ? localStorage : sessionStorage;
-  storage.setItem('admin_access_token', tokens.access);
-  storage.setItem('admin_refresh_token', tokens.refresh);
+  sessionStorage.setItem('admin_access_token', tokens.access);
+  sessionStorage.setItem('admin_refresh_token', tokens.refresh);
+  sessionStorage.setItem('admin_source', rememberMe ? 'both' : 'session');
   if (rememberMe) {
-    sessionStorage.removeItem('admin_access_token');
-    sessionStorage.removeItem('admin_refresh_token');
-  } else {
-    localStorage.removeItem('admin_access_token');
-    localStorage.removeItem('admin_refresh_token');
+    localStorage.setItem('admin_access_token', tokens.access);
+    localStorage.setItem('admin_refresh_token', tokens.refresh);
   }
 }
 
 function clearTokens() {
-  localStorage.removeItem('admin_access_token');
-  localStorage.removeItem('admin_refresh_token');
+  const source = sessionStorage.getItem('admin_source');
   sessionStorage.removeItem('admin_access_token');
   sessionStorage.removeItem('admin_refresh_token');
+  sessionStorage.removeItem('admin_source');
+  if (source === 'local' || source === 'both') {
+    localStorage.removeItem('admin_access_token');
+    localStorage.removeItem('admin_refresh_token');
+  }
 }
 
 export function AdminProvider({ children }) {

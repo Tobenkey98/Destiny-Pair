@@ -7,12 +7,15 @@ User = get_user_model()
 class CandidateSerializer(serializers.ModelSerializer):
     primary_photo = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
+    denomination_name = serializers.CharField(
+        source='denomination.name', read_only=True, default=None
+    )
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'age',
-            'faith', 'denomination',
+            'faith', 'denomination', 'denomination_name',
             'city_state', 'state_of_residence',
             'genotype', 'blood_group',
             'marital_status', 'ethnic_group',

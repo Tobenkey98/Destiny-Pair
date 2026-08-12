@@ -10,7 +10,7 @@ def rank_candidates(user, candidates):
     if not candidates:
         return []
 
-    candidates = candidates.select_related('profile').prefetch_related('photos')
+    candidates = candidates.select_related('denomination').prefetch_related('photos')
 
     results = []
     for candidate in candidates:

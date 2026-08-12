@@ -8,6 +8,7 @@ import {
 import { Link, useOutletContext } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import CoverCropModal from "../../components/CoverCropModal";
+import { api, getUserAccessToken } from "../../lib/api";
 
 const PROFILE_FIELDS = [
   "phone", "date_of_birth", "gender", "city_state",
@@ -15,13 +16,22 @@ const PROFILE_FIELDS = [
   "highest_qualification", "institution", "profession",
   "genotype", "blood_group", "love_language",
   "preferred_age_min", "preferred_age_max",
+  "weight", "height", "complexion", "looking_for",
+  "marital_status", "preferred_location",
+  "willing_to_relocate", "has_children",
+  "alcohol", "smoking",
+  "preferred_tribe",
   "interests", "hobbies", "short_bio",
   "about_self", "seeking_description",
 ];
 
 function computeProfileCompletion(user) {
   if (!user) return 0;
-  const filled = PROFILE_FIELDS.filter(f => user[f] && user[f].toString().trim()).length;
+  const filled = PROFILE_FIELDS.filter(f => {
+    const v = user[f];
+    if (v === true || v === false) return true;
+    return v && v.toString().trim();
+  }).length;
   return Math.round((filled / PROFILE_FIELDS.length) * 100);
 }
 
@@ -81,6 +91,11 @@ export default function Overview() {
   const [cropModal, setCropModal] = useState(null);
   const canvasRef = useRef(null);
   const [primaryImgError, setPrimaryImgError] = useState(false);
+  const [membership, setMembership] = useState(null);
+
+  useEffect(() => {
+    api.getCurrentSubscription().then(setMembership).catch(() => {});
+  }, []);
 
   const initial = (user?.first_name?.[0] || user?.email?.[0] || "U").toUpperCase();
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "User";
@@ -104,7 +119,7 @@ export default function Overview() {
     try {
       const fd = new FormData();
       fd.append('image', croppedBlob, 'cover.jpg');
-      const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+      const token = getUserAccessToken();
       await fetch('/api/auth/cover-photo/', {
         method: 'POST',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -115,10 +130,18 @@ export default function Overview() {
     setCoverUploading(false);
   }
 
+  const plan = membership?.plan || null;
+  const subActive = membership?.subscription?.status === "active";
+  const membershipDetail = plan
+    ? subActive
+      ? `${plan.name} · ${plan.price_display || "Active"}`
+      : `${plan.name} · inactive`
+    : "Free tier";
+
   const modules = [
     { icon: User, label: "Profile", value: profilePct, color: "from-emerald to-teal-400", detail: `${profilePct}% complete`, path: "/dashboard/profile" },
     { icon: Shield, label: "Verification", value: isVerified ? 100 : 0, color: "from-gold-royal to-amber-400", detail: isVerified ? "Verified" : "Email not verified", path: "/dashboard/profile" },
-    { icon: Crown, label: "Membership", value: 0, color: "from-emerald to-gold-royal", detail: "Free tier", path: "/dashboard/membership" },
+    { icon: Crown, label: "Membership", value: plan ? 100 : 0, color: "from-emerald to-gold-royal", detail: membershipDetail, path: "/membership" },
     { icon: Star, label: "Profile Quality", value: profilePct, color: "from-amber-warm to-orange-400", detail: profilePct >= 80 ? "Excellent" : profilePct >= 50 ? "Good" : "Needs improvement", path: "/dashboard/discover" },
     { icon: MessageCircle, label: "Messages", value: 0, color: "from-emerald to-cyan-400", detail: "No messages yet", path: "/dashboard/chat" },
     { icon: BookOpen, label: "Counselling", value: 0, color: "from-burgundy to-rose-400", detail: "Not started", path: "/dashboard/counselling" },
@@ -136,7 +159,7 @@ export default function Overview() {
             <div className="rounded-[2.5rem] overflow-hidden">
               <div ref={coverRef} className="relative w-full bg-gradient-to-br from-emerald/30 to-gold/20">
                 {coverPhoto ? (
-                  <img src={coverPhoto} alt="Cover" className="block w-full h-[200px] sm:h-[320px] md:h-[420px] object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
+                  <img src={coverPhoto} alt="Cover" className="block w-full h-auto max-h-[200px] sm:max-h-[320px] md:max-h-[420px] object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
                 ) : (
                   <div className="w-full h-[200px] sm:h-[320px] md:h-[420px] pattern-dots opacity-[0.08]" />
                 )}

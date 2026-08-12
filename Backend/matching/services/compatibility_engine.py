@@ -73,9 +73,9 @@ def _score_religion(user_a, user_b):
 
 
 def _score_denomination(user_a, user_b):
-    if not user_a.denomination or not user_b.denomination:
+    if not user_a.denomination_id or not user_b.denomination_id:
         return 0
-    if user_a.denomination.lower() == user_b.denomination.lower():
+    if user_a.denomination_id == user_b.denomination_id:
         return WEIGHTS['denomination']
     return 0
 

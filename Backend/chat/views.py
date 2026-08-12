@@ -35,14 +35,29 @@ class MessageListCreateView(generics.ListCreateAPIView):
         return Message.objects.none()
 
     def perform_create(self, serializer):
+        from subscriptions.services import usage_service
+
+        decision = usage_service.can_send_message(self.request.user)
+        if not decision['allowed']:
+            raise PermissionError(decision['reason'])
         msg = serializer.save(sender=self.request.user)
         msg.conversation.save(update_fields=['updated_at'])
+        usage_service.record_message_sent(self.request.user)
         Activity.objects.create(
             user=self.request.user,
             action='message',
             description='Sent a message',
             related_user=msg.conversation.participants.exclude(id=self.request.user.id).first(),
         )
+
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except PermissionError as exc:
+            return Response(
+                {'error': str(exc), 'detail': 'Your message limit is exhausted for this period.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
 
 class AudioUploadView(APIView):
@@ -67,11 +82,17 @@ class AudioUploadView(APIView):
         if not Conversation.objects.filter(id=conv_id, participants=request.user).exists():
             return Response({'error': 'Conversation not found'}, status=status.HTTP_404_NOT_FOUND)
 
+        from subscriptions.services import usage_service
+        decision = usage_service.can_send_voice_notes(request.user)
+        if not decision['allowed']:
+            return Response(decision, status=status.HTTP_403_FORBIDDEN)
+
         msg = Message.objects.create(
             conversation_id=conv_id,
             sender=request.user,
-            text='[Voice Note]',
+            message='[Voice Note]',
             audio=file,
         )
+        usage_service.record_message_sent(request.user)
         serializer = MessageSerializer(msg, context={'request': request})
         return Response(serializer.data, status=status.HTTP_201_CREATED)

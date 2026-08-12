@@ -145,7 +145,19 @@ class ProfileTrackView(APIView):
         if viewed.id == request.user.id:
             return Response({'error': 'Cannot track your own profile'}, status=status.HTTP_400_BAD_REQUEST)
 
+        from subscriptions.services import usage_service
+        decision = usage_service.can_view_profile(request.user)
+        if not decision['allowed']:
+            return Response(
+                {
+                    'error': decision['reason'],
+                    'detail': 'You have reached your daily profile view limit.',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         ProfileView.objects.create(viewer=request.user, viewed=viewed)
+        usage_service.record_profile_view(request.user)
         return Response({'status': 'tracked'})
 
 
@@ -168,7 +180,19 @@ class SaveProfileView(APIView):
         if saved.id == request.user.id:
             return Response({'error': 'Cannot save your own profile'}, status=status.HTTP_400_BAD_REQUEST)
 
+        from subscriptions.services import usage_service
+        decision = usage_service.can_save_profile(request.user)
+        if not decision['allowed']:
+            return Response(
+                {
+                    'error': decision['reason'],
+                    'detail': 'You have reached your daily save limit.',
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         _, created = SavedProfile.objects.get_or_create(saver=request.user, saved=saved)
         if created:
+            usage_service.record_save(request.user)
             return Response({'status': 'saved'})
         return Response({'status': 'already_saved'})

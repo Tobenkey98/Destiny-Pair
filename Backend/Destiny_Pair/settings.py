@@ -1,5 +1,10 @@
+import os
 from pathlib import Path
 from datetime import timedelta
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -111,20 +116,49 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
+# Paystack
+# Set PAYSTACK_SECRET_KEY to a live/test secret key to enable checkout.
+PAYSTACK_SECRET_KEY = os.environ.get('PAYSTACK_SECRET_KEY', '')
+PAYSTACK_PUBLIC_KEY = os.environ.get('PAYSTACK_PUBLIC_KEY', '')
+PAYSTACK_CALLBACK_URL = os.environ.get(
+    'PAYSTACK_CALLBACK_URL',
+    f'{os.environ.get("FRONTEND_URL", "http://localhost:5173")}/pricing',
+)
+
+# Monnify
+# Set MONNIFY_API_KEY + MONNIFY_SECRET_KEY (client credentials) to enable the
+# Monnify checkout. MONNIFY_SANDBOX accepts 1/true/yes (or a sandbox URL).
+MONNIFY_API_KEY = os.environ.get('MONNIFY_API_KEY', '')
+MONNIFY_SECRET_KEY = os.environ.get('MONNIFY_SECRET_KEY', '')
+MONNIFY_CONTRACT_CODE = os.environ.get('MONNIFY_CONTRACT_CODE', '')
+_monnify_sandbox_val = os.environ.get('MONNIFY_SANDBOX', '1')
+MONNIFY_SANDBOX = (
+    _monnify_sandbox_val.lower() in ('1', 'true', 'yes', 'on')
+    or 'sandbox' in _monnify_sandbox_val.lower()
+)
+MONNIFY_BASE_URL = os.environ.get(
+    'MONNIFY_BASE_URL',
+    'https://sandbox.monnify.com' if MONNIFY_SANDBOX else 'https://api.monnify.com',
+)
+MONNIFY_REDIRECT_URL = os.environ.get(
+    'MONNIFY_REDIRECT_URL',
+    f'{FRONTEND_URL}/checkout/complete',
+)
+
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
         'LOCATION': 'redis://127.0.0.1:6379/1',
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            'SOCKET_CONNECT_TIMEOUT': 2,
+            'SOCKET_TIMEOUT': 5,
         },
     }
 }
 
 # Cache suggestions for 1 hour
 SUGGESTIONS_CACHE_TTL = 60 * 60
-
-import os
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'uploads'

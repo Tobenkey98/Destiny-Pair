@@ -12,6 +12,7 @@ export default function CoverCropModal({ src, ratio = 4, onSave, onClose }) {
 
   const OUT_W = 1600;
   const OUT_H = Math.round(OUT_W / ratio);
+  const ZOOM = 1.12;
 
   useEffect(() => {
     if (imgLoaded && containerRef.current) {
@@ -19,7 +20,7 @@ export default function CoverCropModal({ src, ratio = 4, onSave, onClose }) {
       const iw = imgSize.w, ih = imgSize.h;
       const scaleX = rect.width / iw;
       const scaleY = (rect.width / ratio) / ih;
-      const scale = Math.max(scaleX, scaleY);
+      const scale = Math.max(scaleX, scaleY) * ZOOM;
       const displayW = iw * scale;
       const displayH = ih * scale;
       const cropDisplayW = rect.width;
@@ -49,7 +50,7 @@ export default function CoverCropModal({ src, ratio = 4, onSave, onClose }) {
     const iw = imgSize.w, ih = imgSize.h;
     const scaleX = rect.width / iw;
     const scaleY = (rect.width / ratio) / ih;
-    const scale = Math.max(scaleX, scaleY);
+    const scale = Math.max(scaleX, scaleY) * ZOOM;
     const displayW = iw * scale;
     const displayH = ih * scale;
     const cropDisplayW = rect.width;
@@ -76,7 +77,7 @@ export default function CoverCropModal({ src, ratio = 4, onSave, onClose }) {
     const iw = imgSize.w, ih = imgSize.h;
     const scaleX = rect.width / iw;
     const scaleY = (rect.width / ratio) / ih;
-    const scale = Math.max(scaleX, scaleY);
+    const scale = Math.max(scaleX, scaleY) * ZOOM;
     const cropW = rect.width / scale;
     const cropH = (rect.width / ratio) / scale;
     const cropX = Math.round(Math.abs(offset.x) / scale);
@@ -108,7 +109,7 @@ export default function CoverCropModal({ src, ratio = 4, onSave, onClose }) {
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="relative w-full max-w-3xl rounded-3xl bg-background overflow-hidden shadow-luxe mx-2"
+          className="relative w-full max-w-4xl rounded-3xl bg-background overflow-hidden shadow-luxe mx-2"
         >
           <div className="flex items-center justify-between p-3 sm:p-4 border-b border-border/40">
             <h3 className="font-display text-base sm:text-lg font-bold text-foreground">Position Your Cover Photo</h3>

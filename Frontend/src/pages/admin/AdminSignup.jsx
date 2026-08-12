@@ -24,10 +24,18 @@ function AdminSignup() {
     invitation_token: "",
   });
 
+  const [invitationRole, setInvitationRole] = useState(null);
+
   useEffect(() => {
     const token = searchParams.get("token");
     if (token) {
       setForm(prev => ({ ...prev, invitation_token: token }));
+      api.adminInvitationLookup(token).then(data => {
+        if (data.role) {
+          setForm(prev => ({ ...prev, email: data.email, role: data.role }));
+          setInvitationRole(data.role_display);
+        }
+      }).catch(() => {});
     }
   }, [searchParams]);
   const [showPw, setShowPw] = useState(false);
@@ -152,8 +160,8 @@ function AdminSignup() {
             {hasTokenFromUrl ? (
               <div>
                 <label className="block text-sm font-semibold mb-2">Role</label>
-                <p className="px-4 py-3 rounded-xl bg-background border border-border text-muted-foreground text-sm">
-                  Assigned from invitation
+                <p className="px-4 py-3 rounded-xl bg-background border border-border text-muted-foreground text-sm font-semibold">
+                  {invitationRole || "Assigned from invitation"}
                 </p>
               </div>
             ) : (

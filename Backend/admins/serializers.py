@@ -41,6 +41,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'genotype', 'blood_group', 'love_language',
             'marital_status', 'state_of_residence',
             'state_of_origin', 'ethnic_group',
+            'weight', 'height', 'complexion', 'looking_for',
+            'preferred_location', 'deal_breakers',
+            'willing_to_relocate', 'has_children', 'number_of_children',
+            'languages_spoken', 'personality_traits',
+            'alcohol', 'smoking',
+            'preferred_height_min', 'preferred_height_max',
+            'preferred_tribe',
             'about_self', 'seeking_description',
             'is_verified', 'is_active', 'is_banned',
             'is_profile_completed', 'is_staff', 'is_superuser',
@@ -90,7 +97,7 @@ class AdminSignupSerializer(serializers.Serializer):
     password2 = serializers.CharField(write_only=True)
     first_name = serializers.CharField(max_length=150, required=False, default='')
     last_name = serializers.CharField(max_length=150, required=False, default='')
-    role = serializers.ChoiceField(choices=AdminProfile.ROLE_CHOICES, required=False, default='super_admin')
+    role = serializers.ChoiceField(choices=AdminProfile.ROLE_CHOICES, required=False, allow_blank=True, default='super_admin')
     invitation_token = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate(self, attrs):

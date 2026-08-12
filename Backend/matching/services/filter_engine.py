@@ -15,7 +15,6 @@ def get_qualified_candidates(user):
     """
     qs = User.objects.filter(
         is_verified=True,
-        is_profile_completed=True,
         is_active=True,
         is_banned=False,
     ).exclude(id=user.id)
@@ -25,13 +24,12 @@ def get_qualified_candidates(user):
     qs = _exclude_blocked_or_rejected(qs, user)
     qs = _exclude_expired_subscriptions(qs)
     qs = _apply_religion_filter(qs, user)
-    qs = _apply_denomination_filter(qs, user)
-    qs = _apply_age_range_filter(qs, user)
-    qs = _apply_state_preference_filter(qs, user)
-    qs = _apply_marital_status_filter(qs, user)
-    qs = _apply_genotype_filter(qs, user)
-    qs = _apply_education_filter(qs, user)
-    qs = _apply_occupation_filter(qs, user)
+
+    # The remaining preference filters (denomination, age range, state,
+    # marital status, genotype, education, occupation) are deliberately NOT
+    # applied as hard filters here. They feed into the compatibility score
+    # (see compatibility_engine) so that nearby-but-not-perfect matches still
+    # appear; hard exclusions would empty Discover for a small user base.
 
     return qs.distinct()
 
@@ -87,9 +85,10 @@ def _apply_religion_filter(qs, user):
 
 
 def _apply_denomination_filter(qs, user):
-    if user.denomination:
+    if user.denomination_id:
         qs = qs.filter(
-            Q(denomination__iexact=user.denomination) | Q(denomination='')
+            Q(denomination_id=user.denomination_id) |
+            Q(denomination__isnull=True)
         )
     return qs
 

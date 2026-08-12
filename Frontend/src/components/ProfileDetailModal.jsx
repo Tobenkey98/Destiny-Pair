@@ -38,10 +38,10 @@ export default function ProfileDetailModal({ profile, onClose, onLike }) {
         onClick={e => e.stopPropagation()}
         className="w-full max-w-lg mt-8 mb-8 rounded-3xl bg-background overflow-hidden shadow-luxe"
       >
-        {/* Cover */}
-        <div className="relative h-52 bg-gradient-to-br from-emerald/15 to-gold/15">
+        {/* Cover — tall so a significant part of the photo is visible */}
+        <div className="relative h-[300px] sm:h-[360px] md:h-[400px] bg-gradient-to-br from-emerald/15 to-gold/15">
           {!imgError && avatarUrl ? (
-            <img src={avatarUrl} alt={name} className="h-full w-full object-cover" onError={() => setImgError(true)} />
+            <img src={avatarUrl} alt={name} className="h-full w-full object-cover object-center" onError={() => setImgError(true)} />
           ) : (
             <div className="h-full w-full flex items-center justify-center">
               <div className="h-20 w-20 rounded-full bg-gradient-to-br from-emerald to-gold p-0.5">

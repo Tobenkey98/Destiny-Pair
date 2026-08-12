@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Heart, Shield, Users, MapPin, Sparkles, ArrowRight, Check, Star, BookOpen, Compass, HandHeart, Crown, UserCheck } from "lucide-react";
 import { Reveal } from "../components/Section";
 import { api } from "../lib/api";
+import { PLAN_FALLBACK, planFeatures, planMeta } from "../lib/plans";
 
 function Home() {
   const heroRef = useRef(null);
@@ -11,9 +12,11 @@ function Home() {
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const [recentUsers, setRecentUsers] = useState([]);
+  const [plans, setPlans] = useState(null);
 
   useEffect(() => {
     api.recentlyVerified().then(setRecentUsers).catch(() => {});
+    api.getPlans().then(setPlans).catch(() => setPlans(PLAN_FALLBACK));
   }, []);
 
   return (
@@ -253,37 +256,37 @@ function Home() {
               <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold">Choose your sacred journey</h2>
             </div>
           </Reveal>
-          <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-            {[
-              { name: "Essential", price: "\u20A615k", per: "/quarter", desc: "Begin your search.", feats: ["Verified profile","Browse 50 matches","Standard support"], featured: false },
-              { name: "Premium Plus", price: "\u20A645k", per: "/quarter", desc: "Our most chosen plan.", feats: ["Unlimited matches","Personal matchmaker","Pre-marital counselling","Priority introductions","Faith-verification badge"], featured: true },
-              { name: "Concierge", price: "\u20A6120k", per: "/quarter", desc: "Bespoke white-glove service.", feats: ["Dedicated advisor","Hand-picked introductions","Family consultations","Lifetime support"], featured: false },
-            ].map((p, i) => (
-              <Reveal key={i} delay={i * 0.1}>
-                <motion.div whileHover={{ y: -8 }} className={`relative p-8 rounded-3xl border transition-all ${p.featured ? "bg-luxury text-[color:var(--cream-soft)] shadow-luxe border-transparent scale-105" : "bg-background border-border shadow-soft hover:shadow-luxe"}`}>
-                  {p.featured && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-xs font-bold tracking-wider shadow-glow">RECOMMENDED</div>
-                  )}
-                  <h3 className={`font-display text-2xl font-bold ${p.featured ? "text-[color:var(--gold-royal)]" : ""}`}>{p.name}</h3>
-                  <p className={`text-sm mt-1 ${p.featured ? "text-[color:var(--cream-soft)]/80" : "text-muted-foreground"}`}>{p.desc}</p>
-                  <div className="mt-6 flex items-baseline gap-1">
-                    <span className={`font-display text-5xl font-bold ${p.featured ? "text-gradient-gold" : ""}`}>{p.price}</span>
-                    <span className={p.featured ? "text-[color:var(--cream-soft)]/70" : "text-muted-foreground"}>{p.per}</span>
-                  </div>
-                  <ul className="mt-7 space-y-3">
-                    {p.feats.map(f => (
-                      <li key={f} className="flex gap-2.5 items-start text-sm">
-                        <Check className={`h-5 w-5 shrink-0 ${p.featured ? "text-[color:var(--gold-royal)]" : "text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)]"}`} />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Link to="/membership" className={`mt-8 block text-center py-3.5 rounded-full font-semibold transition ${p.featured ? "bg-gold text-[color:var(--emerald-deep)] hover:shadow-glow" : "bg-emerald text-[color:var(--gold-royal)]"}`}>
-                    Choose {p.name}
-                  </Link>
-                </motion.div>
-              </Reveal>
-            ))}
+          <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-8">
+            {(plans || PLAN_FALLBACK).map((p, i) => {
+              const meta = planMeta(p.slug);
+              const feats = planFeatures(p);
+              return (
+                <Reveal key={p.slug} delay={i * 0.1}>
+                  <motion.div whileHover={{ y: -8 }} className={`relative p-8 rounded-3xl border transition-all h-full ${meta.featured ? "bg-luxury text-[color:var(--cream-soft)] shadow-luxe border-transparent xl:scale-105" : "bg-background border-border shadow-soft hover:shadow-luxe"}`}>
+                    {meta.featured && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-xs font-bold tracking-wider shadow-glow">RECOMMENDED</div>
+                    )}
+                    <h3 className={`font-display text-2xl font-bold ${meta.featured ? "text-[color:var(--gold-royal)]" : ""}`}>{p.name}</h3>
+                    <p className={`text-sm mt-1 ${meta.featured ? "text-[color:var(--cream-soft)]/80" : "text-muted-foreground"}`}>{p.description || p.desc}</p>
+                    <div className="mt-6 flex items-baseline gap-1">
+                      <span className={`font-display text-5xl font-bold ${meta.featured ? "text-gradient-gold" : ""}`}>{p.price_display || `\u20A6${Number(p.price).toLocaleString()}`}</span>
+                      <span className={meta.featured ? "text-[color:var(--cream-soft)]/70" : "text-muted-foreground"}>{meta.per}</span>
+                    </div>
+                    <ul className="mt-7 space-y-3">
+                      {feats.slice(0, 4).map(f => (
+                        <li key={f} className="flex gap-2.5 items-start text-sm">
+                          <Check className={`h-5 w-5 shrink-0 ${meta.featured ? "text-[color:var(--gold-royal)]" : "text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)]"}`} />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Link to={p.slug === "free" ? "/register" : `/checkout/${p.slug}`} className={`mt-8 block text-center py-3.5 rounded-full font-semibold transition ${meta.featured ? "bg-gold text-[color:var(--emerald-deep)] hover:shadow-glow" : "bg-emerald text-[color:var(--gold-royal)]"}`}>
+                      Choose {p.name}
+                    </Link>
+                  </motion.div>
+                </Reveal>
+              );
+            })}
           </div>
         </div>
       </section>

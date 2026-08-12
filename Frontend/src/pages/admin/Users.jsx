@@ -84,7 +84,7 @@ export default function AdminUsers() {
             <table className="w-full">
               <thead>
                 <tr className="border-b text-left">
-                  {["User", "Online", "Email", "Status", "Verified", "Joined", ""].map((h) => (
+                  {["User", "Online", "Email", "Status", "Verified", "Last Login", ""].map((h) => (
                     <th key={h} className="px-4 py-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -137,7 +137,7 @@ export default function AdminUsers() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-sm text-muted-foreground">
-                      {u.date_joined ? new Date(u.date_joined).toLocaleDateString() : '—'}
+                      {u.last_login ? new Date(u.last_login).toLocaleString() : '—'}
                     </td>
                     <td className="px-4 py-3">
                       <button className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center">
