@@ -1,4 +1,4 @@
-import random
+import secrets
 from datetime import timedelta
 
 from django.conf import settings
@@ -39,7 +39,24 @@ def get_tokens_for_user(user):
 
 
 def generate_code():
-    return f"{random.randint(100000, 999999)}"
+    return f"{secrets.randbelow(900000) + 100000}"
+
+
+def client_ip(request):
+    forwarded = request.META.get('HTTP_X_FORWARDED_FOR', '')
+    if forwarded:
+        return forwarded.split(',')[0].strip()
+    return request.META.get('REMOTE_ADDR', '') or ''
+
+
+def _too_many_attempts(key, limit, ttl=600):
+    """Simple cache-backed attempt limiter. Returns True once ``limit``
+    attempts have been reached; each call consumes one attempt."""
+    count = int(cache.get(key, 0) or 0)
+    if count >= limit:
+        return True
+    cache.set(key, count + 1, ttl)
+    return False
 
 
 def send_verification_email(user):
@@ -114,6 +131,12 @@ class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
+        if _too_many_attempts(f'login_ip_{client_ip(request)}', 10, ttl=900):
+            return Response(
+                {'error': 'Too many sign-in attempts. Please try again in a few minutes.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
+
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
@@ -123,6 +146,12 @@ class LoginView(APIView):
 
         if not user.check_password(serializer.validated_data['password']):
             return Response({'error': 'Invalid email or password'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        if getattr(user, 'is_banned', False) or not user.is_active:
+            return Response(
+                {'error': 'This account is suspended. Please contact support.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
         if hasattr(user, 'admin_profile'):
             return Response(
@@ -152,6 +181,12 @@ class VerifyEmailView(APIView):
 
         email = serializer.validated_data['email']
         code = serializer.validated_data['code']
+
+        if _too_many_attempts(f'verify_attempts_{email.lower()}', 5):
+            return Response(
+                {'error': 'Too many verification attempts. Please request a new code.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         try:
             user = User.objects.get(email=email, is_verified=False)
@@ -252,18 +287,58 @@ class SocialAuthView(APIView):
         return None
 
     def _verify_facebook(self, token):
+        """Server-side verification of a Facebook user token.
+
+        When ``FACEBOOK_APP_ID`` + ``FACEBOOK_APP_SECRET`` are configured the
+        token is first checked with Graph's ``debug_token`` endpoint: this
+        confirms the token is valid AND was minted by *our* app (blocks tokens
+        minted by a different Facebook app), and includes the token's
+        ``appsecret_proof`` so the profile call can't be replayed elsewhere.
+        Without the secret we fall back to a plain profile fetch so dev setups
+        keep working.
+        """
+        app_id = getattr(settings, 'FACEBOOK_APP_ID', '')
+        app_secret = getattr(settings, 'FACEBOOK_APP_SECRET', '')
+        appsecret_proof = ''
         try:
+            if app_id and app_secret:
+                import hashlib
+                import hmac as hmac_module
+                appsecret_proof = hmac_module.new(
+                    app_secret.encode(), token.encode(), hashlib.sha256
+                ).hexdigest()
+                dbg = requests.get(
+                    'https://graph.facebook.com/debug_token',
+                    params={
+                        'input_token': token,
+                        'access_token': f'{app_id}|{app_secret}',
+                    },
+                    timeout=10,
+                )
+                if dbg.status_code != 200:
+                    return None
+                info = dbg.json().get('data') or {}
+                if not info.get('is_valid'):
+                    return None
+                if info.get('app_id') and str(info['app_id']) != str(app_id):
+                    return None
+        except requests.RequestException:
+            return None
+
+        try:
+            params = {
+                'fields': 'id,name,email,first_name,last_name',
+                'access_token': token,
+            }
+            if appsecret_proof:
+                params['appsecret_proof'] = appsecret_proof
             resp = requests.get(
                 'https://graph.facebook.com/me',
-                params={
-                    'fields': 'id,name,email,first_name,last_name',
-                    'access_token': token,
-                },
+                params=params,
                 timeout=10,
             )
-            data = resp.json()
-            if 'email' in data:
-                return data
+            if resp.status_code == 200:
+                return resp.json()
         except requests.RequestException:
             pass
         return None
@@ -275,6 +350,23 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class PublicProfileView(generics.RetrieveAPIView):
+    """GET /auth/profiles/<public_id>/
+
+    Returns a public profile addressed by its non-guessable ``public_id``.
+    Only ``DiscoverSerializer`` (safe, public fields) is exposed — never
+    email, phone, or account settings. Ownership is irrelevant here because
+    nothing on this endpoint can modify the account.
+    """
+    serializer_class = DiscoverSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'public_id'
+    lookup_url_kwarg = 'public_id'
+
+    def get_queryset(self):
+        return User.objects.filter(is_active=True)
 
 
 class LogoutView(APIView):
@@ -426,6 +518,12 @@ class ResetPasswordView(APIView):
 
         if not all([email, code, old_password, new_password, new_password2]):
             return Response({'error': 'All fields are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if _too_many_attempts(f'reset_attempts_{email.lower()}', 5):
+            return Response(
+                {'error': 'Too many reset attempts. Please request a new code.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         try:
             user = User.objects.get(email=email)

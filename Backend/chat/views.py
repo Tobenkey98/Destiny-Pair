@@ -36,6 +36,11 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         from subscriptions.services import usage_service
+        from chat.content_policy import check_message_policy, PolicyViolation
+
+        violation = check_message_policy(serializer.validated_data.get('message', ''))
+        if violation:
+            raise PolicyViolation(violation)
 
         decision = usage_service.can_send_message(self.request.user)
         if not decision['allowed']:
@@ -53,6 +58,11 @@ class MessageListCreateView(generics.ListCreateAPIView):
     def create(self, request, *args, **kwargs):
         try:
             return super().create(request, *args, **kwargs)
+        except PolicyViolation as exc:
+            return Response(
+                {'error': exc.violation['reason'], 'code': exc.violation['code']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         except PermissionError as exc:
             return Response(
                 {'error': str(exc), 'detail': 'Your message limit is exhausted for this period.'},

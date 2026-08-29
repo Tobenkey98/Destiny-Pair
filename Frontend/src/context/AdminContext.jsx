@@ -181,10 +181,13 @@ export function AdminProvider({ children }) {
 
   const roleLevel = adminProfile ? (ROLE_HIERARCHY[adminProfile.role] || 0) : 0;
 
+  const counts = dashboard?.counts || {};
+
   return (
     <AdminContext.Provider value={{
       adminProfile,
       dashboard,
+      counts,
       loading,
       error,
       adminLogin,

@@ -13,8 +13,9 @@ function filterNavByRole(items, role) {
 }
 
 export function AdminSidebar({ collapsed, onToggle }) {
-  const { adminProfile, roleDisplay } = useAdmin();
+  const { adminProfile, roleDisplay, counts } = useAdmin();
   const role = adminProfile?.role;
+  const badgeFor = (item) => (item.badgeKey ? counts[item.badgeKey] : item.badge);
 
   if (!role) return null;
 
@@ -61,9 +62,9 @@ export function AdminSidebar({ collapsed, onToggle }) {
                   >
                     <item.icon className="h-4 w-4 shrink-0" />
                     {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
-                    {!collapsed && item.badge && (
+                    {!collapsed && badgeFor(item) > 0 && (
                       <span className="shrink-0 h-5 min-w-5 rounded-full bg-sidebar-primary text-sidebar-primary-foreground text-[10px] font-semibold flex items-center justify-center px-1">
-                        {item.badge}
+                        {badgeFor(item)}
                       </span>
                     )}
                   </NavLink>
@@ -88,8 +89,10 @@ export function AdminSidebar({ collapsed, onToggle }) {
 }
 
 export function MobileNav({ pathname, onNavigate }) {
-  const { adminProfile } = useAdmin();
+  const { adminProfile, counts } = useAdmin();
   const role = adminProfile?.role;
+  const badgeFor = (item) => (item.badgeKey ? counts[item.badgeKey] : item.badge);
+
   if (!role) return null;
 
   return (
@@ -123,9 +126,9 @@ export function MobileNav({ pathname, onNavigate }) {
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
                   <span className="flex-1 text-left truncate">{item.label}</span>
-                  {item.badge && (
+                  {badgeFor(item) > 0 && (
                     <span className="shrink-0 h-5 min-w-5 rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center px-1">
-                      {item.badge}
+                      {badgeFor(item)}
                     </span>
                   )}
                 </button>

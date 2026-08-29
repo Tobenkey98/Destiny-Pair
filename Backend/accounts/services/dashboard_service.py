@@ -130,9 +130,21 @@ class DashboardService:
         except Exception:
             pass
 
+        total_reports = 0
+        try:
+            from notifications.models import Report
+            total_reports = Report.objects.count()
+        except Exception:
+            pass
+
         return {
             'role': 'super_admin',
             'title': 'Super Admin Dashboard',
+            'counts': {
+                'matches': total_matches,
+                'moderation': pending_photos + total_reports,
+                'reports': total_reports,
+            },
             'analytics': {
                 'total_users': total_users,
                 'active_users': active_users,
@@ -169,6 +181,13 @@ class DashboardService:
         recent_payments_count = 0
         recent_payments_total = 0
 
+        total_matches = 0
+        try:
+            from matching.models import Match
+            total_matches = Match.objects.count()
+        except Exception:
+            pass
+
         try:
             from subscriptions.models import UserSubscription
             active_subscriptions = UserSubscription.objects.filter(active=True).count()
@@ -188,6 +207,7 @@ class DashboardService:
         return {
             'role': 'operations_admin',
             'title': 'Operations Dashboard',
+            'counts': {'matches': total_matches},
             'analytics': {
                 'total_users': total_users,
                 'active_subscriptions': active_subscriptions,
@@ -214,9 +234,19 @@ class DashboardService:
         except Exception:
             pass
 
+        try:
+            from notifications.models import Report
+            total_reports = Report.objects.count()
+        except Exception:
+            pass
+
         return {
             'role': 'moderator',
             'title': 'Moderation Dashboard',
+            'counts': {
+                'moderation': pending_approvals + total_reports,
+                'reports': total_reports,
+            },
             'analytics': {
                 'pending_photo_approvals': pending_approvals,
                 'total_reports': total_reports,

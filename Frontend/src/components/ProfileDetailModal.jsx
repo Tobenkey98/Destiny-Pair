@@ -1,8 +1,9 @@
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
   X, User, Cross, MapPin, Heart, Briefcase, Church,
-  GraduationCap, Star, BookHeart, Sparkles, BadgeCheck, Circle,
+  GraduationCap, Star, BookHeart, Sparkles, BadgeCheck, Circle, ExternalLink,
 } from "lucide-react";
 
 export default function ProfileDetailModal({ profile, onClose, onLike }) {
@@ -135,14 +136,25 @@ export default function ProfileDetailModal({ profile, onClose, onLike }) {
         </div>
 
         {/* Action */}
-        <div className="px-6 pb-6 flex gap-3">
-          <button onClick={onClose} className="flex-1 py-3 rounded-full border border-border/60 text-sm font-semibold text-foreground/70 hover:bg-foreground/5 transition">Close</button>
-          <button
-            onClick={() => { onLike(profile.id); onClose(); }}
-            className="flex-1 py-3 rounded-full bg-emerald text-white text-sm font-semibold shadow-md hover:shadow-lg hover:bg-emerald/90 transition flex items-center justify-center gap-2"
-          >
-            <Heart className="h-4 w-4" /> Interest
-          </button>
+        <div className="px-6 pb-6 flex flex-col gap-3">
+          {profile.public_id && (
+            <Link
+              to={`/dashboard/profile/${profile.public_id}`}
+              onClick={onClose}
+              className="w-full py-3 rounded-full border border-emerald/30 text-emerald text-sm font-semibold transition flex items-center justify-center gap-2 hover:bg-emerald/10"
+            >
+              <ExternalLink className="h-4 w-4" /> View Full Profile
+            </Link>
+          )}
+          <div className="flex gap-3">
+            <button onClick={onClose} className="flex-1 py-3 rounded-full border border-border/60 text-sm font-semibold text-foreground/70 hover:bg-foreground/5 transition">Close</button>
+            <button
+              onClick={() => { onLike(profile.id); onClose(); }}
+              className="flex-1 py-3 rounded-full bg-emerald text-white text-sm font-semibold shadow-md hover:shadow-lg hover:bg-emerald/90 transition flex items-center justify-center gap-2"
+            >
+              <Heart className="h-4 w-4" /> Interest
+            </button>
+          </div>
         </div>
       </motion.div>
     </motion.div>

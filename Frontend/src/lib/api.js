@@ -54,6 +54,9 @@ export const api = {
   getProfile() {
     return request('/auth/profile/', { method: 'GET' });
   },
+  getPublicProfile(publicId) {
+    return request(`/auth/profiles/${encodeURIComponent(publicId)}/`, { method: 'GET' });
+  },
   updateProfile(payload) {
     return request('/auth/profile/', { method: 'PATCH', body: JSON.stringify(payload) });
   },
@@ -175,6 +178,21 @@ export const api = {
   getCurrentSubscription() {
     return request('/subscriptions/current/', { method: 'GET' });
   },
+  startCall(conversationId, callType = 'audio') {
+    return request('/subscriptions/calls/start/', {
+      method: 'POST',
+      body: JSON.stringify({ conversation_id: conversationId, call_type: callType }),
+    });
+  },
+  endCall(sessionId) {
+    return request(`/subscriptions/calls/${sessionId}/end/`, { method: 'POST' });
+  },
+  callBalance() {
+    return request('/subscriptions/calls/balance/', { method: 'GET' });
+  },
+  callHistory() {
+    return request('/subscriptions/calls/history/', { method: 'GET' });
+  },
   initPayment(payload) {
     return request('/subscriptions/subscribe/', { method: 'POST', body: JSON.stringify(payload) });
   },
@@ -222,6 +240,12 @@ export const api = {
   },
   adminApprovePhoto(photoId, action) {
     return request('/admin/photos/approve/', { method: 'POST', body: JSON.stringify({ photo_id: photoId, action }) });
+  },
+  adminModeration() {
+    return request('/admin/moderation/', { method: 'GET' });
+  },
+  adminMatches() {
+    return request('/admin/matches/', { method: 'GET' });
   },
   adminCounsellingSessions() {
     return request('/admin/counselling/', { method: 'GET' });
@@ -278,6 +302,30 @@ export const api = {
 
   getDenominations() {
     return request('/auth/denominations/', { method: 'GET' })
+  },
+  chatbotSend(payload) {
+    return request('/chatbot/', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  chatbotEscalate(payload) {
+    return request('/chatbot/escalate/', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  chatbotFeedback(payload) {
+    return request('/chatbot/feedback/', { method: 'POST', body: JSON.stringify(payload) });
+  },
+  chatbotConfig() {
+    return request('/chatbot/config/', { method: 'GET' });
+  },
+  adminChatbotTickets() {
+    return request('/admin/chatbot/tickets/', { method: 'GET' });
+  },
+  adminChatbotTicket(id) {
+    return request(`/admin/chatbot/tickets/${id}/`, { method: 'GET' });
+  },
+  adminChatbotUpdateTicket(id, payload) {
+    return request(`/admin/chatbot/tickets/${id}/update/`, { method: 'PATCH', body: JSON.stringify(payload) });
+  },
+  adminChatbotStats() {
+    return request('/admin/chatbot/stats/', { method: 'GET' });
   },
   adminDenominations() {
     return request('/admin/denominations/', { method: 'GET' })

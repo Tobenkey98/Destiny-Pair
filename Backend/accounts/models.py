@@ -50,6 +50,11 @@ class User(AbstractUser):
     reset_code = models.CharField(max_length=6, blank=True, null=True)
     reset_code_created_at = models.DateTimeField(blank=True, null=True)
 
+    # Public, non-guessable identifier shown in profile URLs. It is never
+    # used for authentication or authorization — only to address a public
+    # profile page — so knowing someone else's ID grants no account access.
+    public_id = models.CharField(max_length=20, unique=True, null=True, blank=True, editable=False)
+
     # Security stamp used to invalidate all issued JWTs when role/permissions
     # change or an account is deactivated (defence against stale tokens).
     security_stamp = models.CharField(max_length=64, blank=True, default='')
@@ -115,7 +120,16 @@ class User(AbstractUser):
     def save(self, *args, **kwargs):
         if not self.security_stamp:
             self.security_stamp = uuid.uuid4().hex
+        if not self.public_id:
+            self.public_id = self._generate_public_id()
         super().save(*args, **kwargs)
+
+    def _generate_public_id(self):
+        for _ in range(50):
+            candidate = 'DP-' + uuid.uuid4().hex[:8].upper()
+            if not type(self).objects.filter(public_id=candidate).exists():
+                return candidate
+        return 'DP-' + uuid.uuid4().hex[:12].upper()
 
     def __str__(self):
         return self.email

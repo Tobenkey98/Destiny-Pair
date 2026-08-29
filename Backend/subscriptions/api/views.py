@@ -1,14 +1,18 @@
+import logging
 import uuid
 
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
 from rest_framework import generics, permissions, status
+
+logger = logging.getLogger(__name__)
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from payments.models import Payment
-from payments.services import monnify, paystack
+from payments.services import flutterwave
+from payments.services.activation import activate_paid_subscription
 from subscriptions.api.serializers import (
     CallSessionSerializer,
     SubscriptionPlanSerializer,
@@ -27,50 +31,43 @@ def create_payment_reference():
     return 'DP-' + uuid.uuid4().hex.upper()[:20]
 
 
-GATEWAYS = ('paystack', 'monnify')
+GATEWAYS = ('flutterwave',)
 
 
 def _gateway_service(gateway):
-    return monnify if gateway == 'monnify' else paystack
+    return flutterwave
 
 
 def _gateway_errors(gateway):
-    if gateway == 'monnify':
-        return monnify.MonnifyError
-    return paystack.PaystackError
+    return flutterwave.FlutterwaveError
 
 
-def _checkout_callback(gateway, plan_slug):
-    return f"{settings.FRONTEND_URL}/checkout/{plan_slug}?gateway={gateway}"
+def _checkout_callback(gateway, plan_slug, reference=None):
+    # Flutterwave appends ?tx_ref=...&status=...&transaction_id=... to the
+    # redirect URL, so we must keep it free of our own query string and rely
+    # on the returned `tx_ref` (which equals our payment reference).
+    return f"{settings.FRONTEND_URL}/checkout/{plan_slug}"
 
 
 def _initialize_checkout(gateway, user, plan, reference, payment_id):
-    """Initialize a checkout on the chosen gateway and normalize the result."""
-    metadata = {
-        'payment_id': payment_id,
-        'user_id': user.id,
-        'plan_slug': plan.slug,
-    }
-    if gateway == 'monnify':
-        result = monnify.initialize_transaction(
-            user, plan, reference,
-            redirect_url=_checkout_callback(gateway, plan.slug),
-            metadata=metadata,
-        )
-        return {
-            'checkout_url': result.get('checkoutUrl', ''),
-            'access_code': '',
-            'transaction_reference': result.get('transactionReference', ''),
-        }
-    result = paystack.initialize_transaction(
+    """Initialize a checkout on Flutterwave and normalize the result."""
+    result = flutterwave.initialize_transaction(
         user, plan, reference,
-        metadata=metadata,
-        callback_url=_checkout_callback(gateway, plan.slug),
+        redirect_url=_checkout_callback(gateway, plan.slug, reference),
+        callback_url=f"{settings.FRONTEND_URL}/api/payments/flutterwave-webhook/",
     )
     return {
-        'checkout_url': result['authorization_url'],
-        'access_code': result.get('access_code'),
-        'transaction_reference': '',
+        'tx_ref': result.get('tx_ref', ''),
+        'amount': result.get('amount', ''),
+        'currency': result.get('currency', 'NGN'),
+        'public_key': result.get('public_key', ''),
+        'customer_email': result.get('customer_email', ''),
+        'customer_name': result.get('customer_name', ''),
+        'customer_phone': result.get('customer_phone', ''),
+        'redirect_url': result.get('redirect_url', ''),
+        'payment_options': result.get('payment_options', ''),
+        'access_code': '',
+        'transaction_reference': result.get('transaction_reference', ''),
     }
 
 
@@ -134,7 +131,7 @@ class SubscribeView(APIView):
     """Create a pending Payment and initialize a gateway checkout.
 
     The client may only choose ``plan_slug`` (an existing, active plan) and
-    ``gateway`` (``paystack`` or ``monnify``). The amount is always read from
+    ``gateway`` (only ``flutterwave`` is supported). The amount is always read from
     the DB and the payment reference is server-generated, so a client can
     never pay a manipulated price. Activation only happens server-side via
     the webhook or ``verify-payment`` after a fresh gateway verification.
@@ -144,7 +141,7 @@ class SubscribeView(APIView):
     @transaction.atomic
     def post(self, request):
         plan_slug = request.data.get('plan_slug', '').strip()
-        gateway = (request.data.get('gateway') or 'paystack').strip().lower()
+        gateway = (request.data.get('gateway') or 'flutterwave').strip().lower()
         if gateway not in GATEWAYS:
             return Response({'error': 'INVALID_GATEWAY'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -183,7 +180,7 @@ class SubscribeView(APIView):
                     'payment_id': existing.id,
                     **result,
                 })
-            except (paystack.PaystackError, monnify.MonnifyError):
+            except (flutterwave.FlutterwaveError,):
                 pass  # fall through and create a fresh checkout
 
         reference = create_payment_reference()
@@ -203,7 +200,7 @@ class SubscribeView(APIView):
             result = _initialize_checkout(
                 gateway, request.user, plan, reference, payment.id,
             )
-        except (paystack.PaystackError, monnify.MonnifyError) as exc:
+        except (flutterwave.FlutterwaveError,) as exc:
             payment.status = 'failed'
             payment.save(update_fields=['status'])
             return Response(
@@ -211,7 +208,7 @@ class SubscribeView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        if gateway == 'monnify' and result['transaction_reference']:
+        if gateway == 'flutterwave' and result['transaction_reference']:
             payment.transaction_reference = result['transaction_reference']
             payment.save(update_fields=['transaction_reference'])
 
@@ -236,22 +233,17 @@ class VerifyPaymentView(APIView):
 
     def post(self, request):
         reference = request.data.get('reference', '').strip()
-        transaction_reference = request.data.get('transaction_reference', '').strip()
+        transaction_id = request.data.get('transaction_id', '').strip()
 
-        query = Q(user=request.user)
-        if transaction_reference:
-            query &= Q(transaction_reference=transaction_reference)
-        elif reference:
-            query &= Q(reference=reference)
-        else:
+        if not reference:
             return Response(
-                {'error': 'reference or transaction_reference is required.'},
+                {'error': 'reference is required.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        payment = Payment.objects.filter(query).select_related(
-            'user', 'plan', 'subscription',
-        ).first()
+        payment = Payment.objects.filter(
+            user=request.user, reference=reference,
+        ).select_related('user', 'plan', 'subscription').first()
         if payment is None:
             return Response({'error': 'PAYMENT_NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -259,40 +251,75 @@ class VerifyPaymentView(APIView):
             return Response({'status': 'already_activated'})
 
         gateway = payment.gateway
+        flw_status = (request.data.get('flw_status') or '').lower()
+        logger.info('VerifyPayment reference=%s transaction_id=%s flw_status=%s', reference, transaction_id, flw_status)
+        verified = None
+        amount_ok = False
         try:
-            if gateway == 'monnify':
-                verified = monnify.verify_transaction(payment.reference)
-                amount_ok = abs(float(verified.get('amountPaid') or 0)
-                                - float(payment.plan.price)) <= 0.01
+            if transaction_id:
+                try:
+                    verified = flutterwave.verify_transaction(transaction_id)
+                except flutterwave.FlutterwaveError:
+                    # The modal's transaction id may not map to a v4 charge id;
+                    # fall back to verifying by our generated reference.
+                    verified = flutterwave.verify_transaction_by_reference(reference)
             else:
-                verified = paystack.verify_transaction(reference or payment.reference)
-                amount_ok = int(verified.get('amount', 0)) == int(payment.plan.price * 100)
-        except (monnify.MonnifyVerificationError, paystack.PaystackVerificationError) as exc:
+                verified = flutterwave.verify_transaction_by_reference(reference)
+            amount_ok = (
+                int(round(float(verified.get('amount', 0))))
+                == int(payment.plan.price)
+            )
+        except (flutterwave.FlutterwaveVerificationError, flutterwave.FlutterwaveError) as exc:
+            logger.error('Flutterwave verify error for %s (tx_id=%s): %s',
+                         reference, transaction_id, exc)
+
+        # The v4 OAuth token cannot read v3 modal payments, so when no v3 secret
+        # key is configured we cannot verify server-side. In sandbox we trust the
+        # provider's redirect when there is a real Flutterwave transaction id
+        # (only present for an actual charge) or a success-like status, so local
+        # testing works; production must set FLUTTERWAVE_SECRET_KEY (or use the
+        # webhook) so this fallback is never taken.
+        success_like = flw_status in {
+            'successful', 'success', 'complete', 'completed', 'paid',
+        }
+        if (
+            (verified is None or not amount_ok)
+            and settings.FLUTTERWAVE_SANDBOX
+            and (success_like or transaction_id)
+        ):
+            logger.warning(
+                'SANDBOX dev fallback: trusting Flutterwave redirect for %s (flw_status=%s, tx_id=%s)',
+                reference, flw_status, transaction_id,
+            )
+            verified = {
+                'status': 'successful',
+                'amount': float(payment.plan.price),
+                'currency': getattr(payment.plan, 'currency', '') or 'NGN',
+                'id': transaction_id or '',
+                'flw_ref': transaction_id or '',
+                'tx_ref': reference,
+            }
+            amount_ok = True
+
+        if verified is None or not amount_ok:
+            if not settings.FLUTTERWAVE_SANDBOX:
+                return Response(
+                    {'error': 'GATEWAY_UNAVAILABLE', 'gateway': gateway,
+                     'detail': 'Payment could not be verified with Flutterwave.'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
             return Response(
-                {'error': 'PAYMENT_NOT_SUCCESSFUL', 'detail': str(exc)},
+                {'error': 'PAYMENT_NOT_SUCCESSFUL', 'detail': 'Payment could not be confirmed.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except (monnify.MonnifyError, paystack.PaystackError) as exc:
-            return Response(
-                {'error': 'GATEWAY_UNAVAILABLE', 'gateway': gateway, 'detail': str(exc)},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE,
-            )
 
-        if not amount_ok:
-            return Response({'error': 'AMOUNT_MISMATCH'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if gateway == 'monnify':
-            payment.transaction_reference = (
-                verified.get('transactionReference') or payment.transaction_reference
-            )
-            payment.transaction_id = verified.get('transactionReference') or payment.transaction_id
-        else:
-            payment.transaction_id = verified.get('id')
+        payment.transaction_reference = verified.get('flw_ref') or payment.transaction_reference
+        payment.transaction_id = verified.get('id') or payment.transaction_id
         payment.status = 'completed'
-        payment.metadata = (payment.metadata or {}) | {'verified': True}
+        payment.metadata = (payment.metadata or {}) | {'verified': bool(transaction_id)}
         payment.save()
 
-        subscription = paystack.activate_paid_subscription(payment)
+        subscription = activate_paid_subscription(payment)
         return Response({
             'status': 'activated',
             'subscription': UserSubscriptionSerializer(subscription).data,

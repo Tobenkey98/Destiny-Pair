@@ -2,31 +2,22 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft, Check, CheckCircle2, CreditCard, Landmark, Loader2,
-  ShieldCheck, Sparkles, AlertTriangle,
+  ArrowLeft, Check, CheckCircle2, CreditCard, Loader2,
+  ShieldCheck, Sparkles, AlertTriangle, XCircle,
 } from "lucide-react";
 import { PageHero, Reveal } from "../components/Section";
 import { api, getUserAccessToken } from "../lib/api";
 import { PLAN_FALLBACK, planFeatures, planMeta } from "../lib/plans";
 import { DOCUMENT_VERSIONS } from "../legalContent/versions";
+import { FlutterwaveIcon } from "../lib/payment-icons";
 
 const GATEWAYS = [
   {
-    id: "paystack",
-    name: "Paystack",
-    tagline: "Card, bank transfer & USSD",
-    note: "Pay securely with your debit card, bank transfer or USSD.",
-    icon: CreditCard,
-    accent: "bg-gold text-[color:var(--emerald-deep)]",
-    ring: "hover:border-[color:var(--gold-royal)]",
-  },
-  {
-    id: "monnify",
-    name: "Monnify",
-    tagline: "Card, bank transfer, USSD & pay-with-bank",
-    note: "Pay by Moniepoint — card, bank transfer, USSD or pay-with-bank.",
-    icon: Landmark,
-    accent: "bg-emerald text-[color:var(--gold-royal)]",
+    id: "flutterwave",
+    name: "Flutterwave",
+    tagline: "Card, bank transfer, USSD & mobile money",
+    note: "Pay by card, bank transfer, USSD or mobile money through Flutterwave's secure checkout.",
+    icon: FlutterwaveIcon,
     ring: "hover:border-[color:var(--emerald-deep)] dark:hover:border-[color:var(--gold-royal)]",
   },
 ];
@@ -37,8 +28,14 @@ function Checkout() {
   const [searchParams] = useSearchParams();
 
   const reference = searchParams.get("reference") || "";
+  const txRef = searchParams.get("tx_ref") || "";
   const transactionReference = searchParams.get("transactionReference") || "";
-  const returning = Boolean(reference || transactionReference || searchParams.get("status"));
+  const transactionId = searchParams.get("transaction_id") || "";
+  const flwStatus = searchParams.get("status") || "";
+  const returnReference = reference || txRef || transactionReference || "";
+  // Flutterwave returns via tx_ref (and no explicit gateway param), so infer it.
+  const returningGateway = txRef ? "flutterwave" : (searchParams.get("gateway") || "flutterwave");
+  const returning = Boolean(reference || txRef || transactionReference || searchParams.get("status"));
 
   const [plans, setPlans] = useState(PLAN_FALLBACK);
   const [phase, setPhase] = useState("idle"); // idle | loading | redirecting | verifying | success | error
@@ -74,25 +71,95 @@ function Checkout() {
   }, [plan, navigate, returning]);
 
   // Coming back from the gateway: verify server-side, then activate.
+  // Retries a couple of times because OPay/Flutterwave can take a moment to
+  // finalise the transaction after the user returns.
   useEffect(() => {
     if (!returning || !plan || phase !== "idle") return;
-    const gateway = searchParams.get("gateway") || "paystack";
+    const gateway = returningGateway;
     setVerifyingGateway(gateway);
     setPhase("verifying");
-    api.verifyPayment({
-      gateway,
-      reference: reference || undefined,
-      transaction_reference: transactionReference || undefined,
-    })
-      .then(() => {
-        setPhase("success");
-        sessionStorage.removeItem("checkout_intent");
-      })
-      .catch(err => {
-        setError(err.data?.error || err.message || "We could not confirm your payment.");
-        setPhase("error");
+
+      const attempt = (triesLeft) =>
+        api.verifyPayment({
+          gateway,
+          reference: returnReference || undefined,
+          transaction_id: transactionId || undefined,
+          flw_status: flwStatus || undefined,
+        })
+        .then(() => {
+          setPhase("success");
+          sessionStorage.removeItem("checkout_intent");
+        })
+        .catch((err) => {
+          const code = err.data?.error;
+          if (triesLeft > 0 && (code === "PAYMENT_NOT_SUCCESSFUL" || code === "GATEWAY_UNAVAILABLE")) {
+            setTimeout(() => attempt(triesLeft - 1), 3000);
+            return;
+          }
+          setError(code || err.message || "We could not confirm your payment.");
+          // A definitively unsuccessful / mismatched payment is shown as "declined".
+          if (code === "PAYMENT_NOT_SUCCESSFUL" || code === "AMOUNT_MISMATCH") {
+            setPhase("declined");
+          } else {
+            setPhase("error");
+          }
+        });
+
+    attempt(2);
+  }, [returning, plan, phase, searchParams, returnReference, transactionId]);
+
+  async function launchFlutterwave(data) {
+    let FlutterwaveCheckout = window.FlutterwaveCheckout;
+    if (!FlutterwaveCheckout) {
+      FlutterwaveCheckout = await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.id = "flw-checkout-script";
+        s.src = "https://checkout.flutterwave.com/v3.js";
+        s.async = true;
+        s.onload = () => resolve(window.FlutterwaveCheckout);
+        s.onerror = () => reject(new Error("Could not load the Flutterwave checkout."));
+        document.body.appendChild(s);
       });
-  }, [returning, plan, phase, searchParams, reference, transactionReference]);
+    }
+    const goBack = (status, txRef, txId) => {
+      try {
+        const url = new URL(data.redirect_url);
+        if (status) url.searchParams.set('status', status);
+        if (txRef) url.searchParams.set('tx_ref', txRef);
+        if (txId) url.searchParams.set('transaction_id', txId);
+        window.location.href = url.toString();
+      } catch {
+        setPhase("idle");
+      }
+    };
+    FlutterwaveCheckout({
+      public_key: data.public_key,
+      tx_ref: data.tx_ref,
+      amount: data.amount,
+      currency: data.currency,
+      customer: {
+        email: data.customer_email,
+        name: data.customer_name,
+        phonenumber: data.customer_phone,
+      },
+      payment_options: data.payment_options || 'card, account, ussd, mobilemoney, banktransfer',
+      redirect_url: data.redirect_url,
+      callback: (response) => {
+        const r = response || {};
+        const txId =
+          r.transaction_id ||
+          (r.data && r.data.transaction_id) ||
+          r.id ||
+          (r.data && r.data.id) ||
+          '';
+        goBack(r.status || 'successful', r.tx_ref || data.tx_ref, txId);
+      },
+      onclose: () => {
+        // User dismissed the modal without completing the payment.
+        goBack('cancelled', data.tx_ref, '');
+      },
+    });
+  }
 
   async function startCheckout(gateway) {
     if (!plan) return;
@@ -114,9 +181,11 @@ function Checkout() {
       );
 
       const data = await api.initPayment({ plan_slug: plan.slug, gateway });
-      if (!data.checkout_url) throw new Error("No checkout URL returned.");
+      if (!data.tx_ref || !data.public_key) {
+        throw new Error("Flutterwave is not fully configured (missing public key).");
+      }
       setPhase("redirecting");
-      window.location.href = data.checkout_url;
+      await launchFlutterwave(data);
     } catch (err) {
       if (err.data?.error === "CONSENT_REQUIRED") {
         setError("Please review and accept the Terms of Use and the Refund & Cancellation Policy to continue.");
@@ -196,8 +265,26 @@ function Checkout() {
                       </div>
                       <h3 className="mt-5 font-display text-3xl font-bold text-gradient-luxury">Payment confirmed</h3>
                       <p className="mt-3 text-muted-foreground">Your <strong>{plan.name}</strong> plan is now active. Welcome to the next chapter of your journey.</p>
+                      {returnReference && (
+                        <p className="mt-4 text-xs text-muted-foreground/80">Transaction reference: <span className="font-semibold text-foreground">{returnReference}</span></p>
+                      )}
                       <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
                         <Link to="/dashboard" className="px-8 py-3.5 rounded-full bg-emerald text-[color:var(--gold-royal)] font-bold shadow-soft hover:shadow-glow transition">Go to dashboard</Link>
+                        <Link to="/membership" className="px-8 py-3.5 rounded-full border border-border font-bold hover:bg-secondary transition">View plans</Link>
+                      </div>
+                    </motion.div>
+                  ) : phase === "declined" ? (
+                    <motion.div initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} className="rounded-3xl border border-border bg-background p-10 text-center shadow-soft">
+                      <div className="h-16 w-16 rounded-full bg-destructive/15 mx-auto flex items-center justify-center">
+                        <XCircle className="h-9 w-9 text-destructive" />
+                      </div>
+                      <h3 className="mt-5 font-display text-3xl font-bold">Payment not successful</h3>
+                      <p className="mt-3 text-muted-foreground">Your payment was declined or could not be confirmed with the provider. No charge has been applied to your account.</p>
+                      {returnReference && (
+                        <p className="mt-4 text-xs text-muted-foreground/80">Reference: <span className="font-semibold text-foreground">{returnReference}</span></p>
+                      )}
+                      <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+                        <button onClick={() => { setPhase("idle"); setError(""); }} className="px-8 py-3.5 rounded-full bg-emerald text-[color:var(--gold-royal)] font-bold shadow-soft hover:shadow-glow transition">Try again</button>
                         <Link to="/membership" className="px-8 py-3.5 rounded-full border border-border font-bold hover:bg-secondary transition">View plans</Link>
                       </div>
                     </motion.div>
@@ -218,9 +305,9 @@ function Checkout() {
                               className={`w-full text-left p-5 rounded-2xl border border-border bg-background transition hover:shadow-soft disabled:opacity-60 ${gw.ring} group ${!consentChecked ? "disabled:cursor-not-allowed" : ""}`}
                             >
                               <div className="flex items-center gap-4">
-                                <div className={`h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 ${gw.accent}`}>
-                                  <GwIcon className="h-6 w-6" />
-                                </div>
+                               <div className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 bg-secondary">
+                                 <GwIcon />
+                               </div>
                                 <div className="flex-1">
                                   <div className="flex items-center justify-between">
                                     <span className="font-display text-lg font-bold">{gw.name}</span>
@@ -248,7 +335,12 @@ function Checkout() {
                       )}
                       {phase === "redirecting" && (
                         <p className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
-                          <Loader2 className="h-4 w-4 animate-spin" /> Redirecting you to the secure gateway…
+                          <Loader2 className="h-4 w-4 animate-spin" /> Opening Flutterwave&rsquo;s secure checkout…
+                        </p>
+                      )}
+                      {phase === "verifying" && (
+                        <p className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
+                          <Loader2 className="h-4 w-4 animate-spin" /> Confirming your payment with {verifyingGateway}…
                         </p>
                       )}
 

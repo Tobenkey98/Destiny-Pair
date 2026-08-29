@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { Heart, Shield, Users, MapPin, Sparkles, ArrowRight, Check, Star, BookOpen, Compass, HandHeart, Crown, UserCheck } from "lucide-react";
 import { Reveal } from "../components/Section";
 import { api } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 import { PLAN_FALLBACK, planFeatures, planMeta } from "../lib/plans";
 
 function Home() {
+  const { user } = useAuth();
   const heroRef = useRef(null);
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ["start start", "end start"] });
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 200]);
@@ -69,11 +71,13 @@ function Home() {
               initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.45 }}
               className="mt-10 flex flex-col sm:flex-row gap-4 justify-center lg:justify-start"
             >
-              <Link to="/register" className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-emerald text-[color:var(--gold-royal)] font-semibold shadow-luxe hover:shadow-glow transition-all overflow-hidden">
-                <span className="relative z-10">Register Free</span>
-                <ArrowRight className="h-5 w-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-                <span className="absolute inset-0 bg-gold opacity-0 group-hover:opacity-100 transition-opacity" />
-              </Link>
+              {!user && (
+                <Link to="/register" className="group relative inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full bg-emerald text-[color:var(--gold-royal)] font-semibold shadow-luxe hover:shadow-glow transition-all overflow-hidden">
+                  <span className="relative z-10">Register Free</span>
+                  <ArrowRight className="h-5 w-5 relative z-10 group-hover:translate-x-1 transition-transform" />
+                  <span className="absolute inset-0 bg-gold opacity-0 group-hover:opacity-100 transition-opacity" />
+                </Link>
+              )}
               <Link to="/membership" className="group inline-flex items-center justify-center gap-2 px-8 py-4 rounded-full glass border-2 border-[color:var(--gold-royal)]/40 font-semibold hover:border-[color:var(--gold-royal)] transition-all">
                 <Crown className="h-5 w-5 text-[color:var(--gold-royal)]" />
                 View Membership Plans

@@ -131,7 +131,7 @@ export const communityGuidelines = {
       id: "support",
       title: "17. Getting Support",
       body: [
-        { text: "If you feel unsafe, are unsure about a member, or need help with anything on the platform, contact our support team at pureintentions.globaltech@gmail.com or +234 810 701 4197. We are here to help." },
+        { text: "If you feel unsafe, are unsure about a member, or need help with anything on the platform, contact our support team at pureintentions.globaltech@gmail.com or +234 806 430 3067. We are here to help." },
       ],
     },
     {
@@ -150,4 +150,5 @@ export const communityGuidelines = {
     },
   ],
 };
+
 

@@ -68,7 +68,7 @@ export const privacyPolicy = {
       id: "data-protection-contact",
       title: "8. Data Protection Contact",
       body: [
-        { text: "For any privacy-related questions, requests or complaints, contact our data protection team at pureintentions.globaltech@gmail.com or +234 810 701 4197." },
+        { text: "For any privacy-related questions, requests or complaints, contact our data protection team at pureintentions.globaltech@gmail.com or +234 806 430 3067." },
       ],
     },
     {
@@ -194,9 +194,10 @@ export const privacyPolicy = {
       id: "questions",
       title: "26. Questions or Concerns",
       body: [
-        { text: "If you have any questions about this Privacy Policy or how your personal information is handled, contact us at pureintentions.globaltech@gmail.com or +234 810 701 4197. We are happy to help." },
+        { text: "If you have any questions about this Privacy Policy or how your personal information is handled, contact us at pureintentions.globaltech@gmail.com or +234 806 430 3067. We are happy to help." },
       ],
     },
   ],
 };
+
 

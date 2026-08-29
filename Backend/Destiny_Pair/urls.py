@@ -7,6 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('', include('Destiny.urls')),
     path('api/', include('matching.api.urls')),
+    path('api/chatbot/', include('chatbot.urls')),
     path('api/admin/', include('admins.urls')),
 ]
 

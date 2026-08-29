@@ -10,13 +10,21 @@ import { api } from "../../lib/api";
 
 export default function Matches() {
   const [matches, setMatches] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [activeConversations, setActiveConversations] = useState(0);
 
   useEffect(() => {
-    api.getMatches().then(setMatches).catch(() => {});
+    api.adminMatches()
+      .then((data) => {
+        setMatches(data.matches || []);
+        setTotal(data.total || 0);
+        setActiveConversations(data.active_conversations || 0);
+      })
+      .catch(() => {});
   }, []);
 
-  const matchRate = matches.length > 0
-    ? Math.round((matches.filter(m => m.status === "matched").length / matches.length) * 100)
+  const matchRate = total > 0
+    ? Math.round(((matches.filter(m => m.status === "matched").length || 0) / total) * 100)
     : 0;
 
   return (
@@ -24,9 +32,9 @@ export default function Matches() {
       <PageHeader title="Matches" description="Compatibility and matchmaking analytics" />
 
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-        <StatCard label="Total Matches" value={String(matches.length || 0)} icon={Heart} color="primary" />
+        <StatCard label="Total Matches" value={String(total || 0)} icon={Heart} color="primary" />
         <StatCard label="Match Rate" value={`${matchRate}%`} icon={TrendingUp} color="success" />
-        <StatCard label="Active Conversations" value="156" icon={MessageCircle} color="info" />
+        <StatCard label="Active Conversations" value={String(activeConversations || 0)} icon={MessageCircle} color="info" />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">

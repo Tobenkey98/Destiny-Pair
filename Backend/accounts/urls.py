@@ -8,6 +8,7 @@ urlpatterns = [
     path('verify-email/', views.VerifyEmailView.as_view(), name='auth-verify-email'),
     path('resend-verification/', views.ResendVerificationView.as_view(), name='auth-resend-verification'),
     path('profile/', views.ProfileView.as_view(), name='auth-profile'),
+    path('profiles/<str:public_id>/', views.PublicProfileView.as_view(), name='auth-public-profile'),
     path('logout/', views.LogoutView.as_view(), name='auth-logout'),
     path('suggestions/', views.SuggestionsView.as_view(), name='auth-suggestions'),
     path('discover/', views.DiscoverView.as_view(), name='auth-discover'),

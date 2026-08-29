@@ -28,7 +28,7 @@ function Login() {
     setError("");
     setNeedsVerification(false);
     try {
-      await login({ email, password, remember_me: rememberMe });
+      const data = await login({ email, password, remember_me: rememberMe });
       const pending = sessionStorage.getItem("pending_profile");
       const checkoutIntent = sessionStorage.getItem("checkout_intent");
       if (checkoutIntent) {
@@ -37,7 +37,7 @@ function Login() {
       } else if (pending) {
         navigate("/social-complete");
       } else {
-        navigate("/dashboard");
+        navigate(data.user?.public_id ? `/dashboard/profile/${data.user.public_id}` : "/dashboard");
       }
     } catch (err) {
       if (err.data?.needs_verification) {
@@ -67,7 +67,7 @@ function Login() {
         sessionStorage.removeItem("checkout_intent");
         navigate(checkoutIntent);
       } else {
-        navigate(result.created ? "/social-complete" : "/dashboard");
+        navigate(result.created ? "/social-complete" : (result.user?.public_id ? `/dashboard/profile/${result.user.public_id}` : "/dashboard"));
       }
     } catch (err) {
       setError(err.data?.error || err.message || `${provider} sign in failed.`);

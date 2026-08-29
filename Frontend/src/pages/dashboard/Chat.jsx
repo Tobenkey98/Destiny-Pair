@@ -4,7 +4,7 @@ import { useParams } from "react-router-dom";
 import {
   Heart, Send, Sparkles, Music,
   ArrowLeft, User, Check, X, Compass, Crown, Star,
-  Phone, PhoneOff, Video, Mic, Square, Volume2,
+  Phone, PhoneOff, Video, Mic, Square, Volume2, ShieldAlert,
 } from "lucide-react";
 import { FourSquare } from "react-loading-indicators";
 import { useAuth } from "../../context/AuthContext";
@@ -13,6 +13,22 @@ import { api, getUserAccessToken } from "../../lib/api";
 const WS_BASE = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/chat/`;
 const WS_PRESENCE = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/presence/`;
 const wsAuth = (t) => [`Bearer.${t}`, 'dp'];
+
+const CALL_REASON_TEXT = {
+  NOT_MUTUAL_MATCH: "Both of you must like each other (a mutual match) before you can call.",
+  EMAIL_NOT_VERIFIED: "Please verify your email address before making calls.",
+  INSUFFICIENT_MESSAGES: "Send a few messages first — you need an active conversation before calling.",
+  MESSAGE_LIMIT_REACHED: "Your message limit is exhausted for this period.",
+  CONVERSATION_LIMIT_REACHED: "Your conversation limit is reached for this period.",
+  CONVERSATION_NOT_FOUND: "This conversation is no longer available.",
+};
+
+const callErrorMessage = (err) =>
+  err?.data?.detail ||
+  CALL_REASON_TEXT[err?.data?.reason] ||
+  err?.data?.error ||
+  err?.message ||
+  "Call could not be started. Please check your plan and message balance.";
 
 function ConversationList({ conversations, activeId, setActiveId, onlineUsers, currentUserId }) {
   if (conversations.length === 0) {
@@ -191,9 +207,13 @@ function VoiceRecorder({ onSend, onCancel }) {
   );
 }
 
-function VideoCallOverlay({ conversationId, localStream, remoteStream, onEnd, incomingCall, callerName, onAccept, onReject }) {
+function VideoCallOverlay({ conversationId, localStream, remoteStream, onEnd, incomingCall, callerName, onAccept, onReject, callType }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const remoteAudioRef = useRef(null);
+  const [elapsed, setElapsed] = useState(0);
+  const isAudio = callType === 'audio';
+  const callLabel = isAudio ? "Audio call" : "Video call";
 
   useEffect(() => {
     if (localVideoRef.current && localStream) localVideoRef.current.srcObject = localStream;
@@ -202,6 +222,18 @@ function VideoCallOverlay({ conversationId, localStream, remoteStream, onEnd, in
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) remoteVideoRef.current.srcObject = remoteStream;
   }, [remoteStream]);
+
+  useEffect(() => {
+    if (remoteAudioRef.current && remoteStream) remoteAudioRef.current.srcObject = remoteStream;
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (incomingCall || !remoteStream) return;
+    const t = setInterval(() => setElapsed(e => e + 1), 1000);
+    return () => clearInterval(t);
+  }, [incomingCall, remoteStream]);
+
+  const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
   if (incomingCall) {
     return (
@@ -215,7 +247,7 @@ function VideoCallOverlay({ conversationId, localStream, remoteStream, onEnd, in
             {callerName?.[0] || "U"}
           </div>
           <h3 className="font-display text-xl font-bold text-foreground">{callerName} is calling...</h3>
-          <p className="text-sm text-muted-foreground mt-1">Video call</p>
+          <p className="text-sm text-muted-foreground mt-1">{callLabel}</p>
           <div className="flex items-center justify-center gap-4 mt-8">
             <button onClick={onReject} className="h-14 w-14 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90 transition shadow-lg">
               <PhoneOff className="h-6 w-6" />
@@ -225,6 +257,32 @@ function VideoCallOverlay({ conversationId, localStream, remoteStream, onEnd, in
             </button>
           </div>
         </div>
+      </motion.div>
+    );
+  }
+
+  if (isAudio) {
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center"
+      >
+        <div className="relative">
+          <div className="h-28 w-28 rounded-full bg-gradient-to-br from-emerald to-gold flex items-center justify-center text-4xl font-bold text-white">
+            {callerName?.[0] || "U"}
+          </div>
+          <span className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-emerald border-4 border-black animate-pulse" />
+        </div>
+        <p className="text-white/90 font-display text-xl font-semibold mt-6">{callerName || "Call"}</p>
+        <p className="text-white/50 text-sm mt-1">{callLabel} · {fmt(elapsed)}</p>
+        <div className="mt-12 flex items-center gap-6">
+          <button onClick={onEnd} className="h-16 w-16 rounded-full bg-destructive text-white flex items-center justify-center hover:bg-destructive/90 transition shadow-lg">
+            <PhoneOff className="h-6 w-6" />
+          </button>
+        </div>
+        <audio ref={remoteAudioRef} autoPlay playsInline className="hidden" />
       </motion.div>
     );
   }
@@ -239,6 +297,10 @@ function VideoCallOverlay({ conversationId, localStream, remoteStream, onEnd, in
       <div className="relative h-full w-full">
         {/* Remote video (full screen) */}
         <video ref={remoteVideoRef} autoPlay playsInline className="h-full w-full object-cover" />
+        {/* Call label + timer */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-black/50 text-white/90 text-sm backdrop-blur-sm">
+          {callLabel} · {fmt(elapsed)}
+        </div>
         {/* Local video (small overlay) */}
         <div className="absolute top-4 right-4 h-40 w-32 rounded-2xl overflow-hidden shadow-lg border-2 border-white/30">
           <video ref={localVideoRef} autoPlay playsInline muted className="h-full w-full object-cover" />
@@ -266,9 +328,12 @@ export default function Chat() {
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [typingUsers, setTypingUsers] = useState(new Set());
   const [showVoice, setShowVoice] = useState(false);
+  const [policyNotice, setPolicyNotice] = useState(null);
 
-  // Video call state
+  // Call state
   const [inCall, setInCall] = useState(false);
+  const [callType, setCallType] = useState('video');
+  const [callSessionId, setCallSessionId] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
@@ -305,6 +370,19 @@ export default function Chat() {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
   };
 
+  // Keep the conversation list's last-message preview in sync in real time.
+  const updateConversationPreview = useCallback((lastMessage) => {
+    if (!activeConvId) return;
+    setConversations(prev => {
+      const updated = prev.map(c => String(c.id) === String(activeConvId)
+        ? { ...c, last_message: lastMessage }
+        : c);
+      const match = updated.find(c => String(c.id) === String(activeConvId));
+      if (!match) return updated;
+      return [match, ...updated.filter(c => String(c.id) !== String(activeConvId))];
+    });
+  }, [activeConvId]);
+
   // Shared WebSocket message handler — always reads the latest closures.
   const wsMessageRef = useRef(() => {});
   useEffect(() => {
@@ -318,6 +396,13 @@ export default function Chat() {
             text: data.text,
             created_at: data.created_at,
           }]);
+          updateConversationPreview({
+            id: data.id,
+            text: data.text,
+            sender: data.sender_id,
+            sender_name: data.sender_name,
+            created_at: data.created_at,
+          });
           break;
         case 'audio':
           setMessages(prev => [...prev, {
@@ -327,6 +412,16 @@ export default function Chat() {
             audio_url: data.audio_url,
             created_at: data.created_at,
           }]);
+          updateConversationPreview({
+            id: data.id,
+            text: '[Voice Note]',
+            sender: data.sender_id,
+            sender_name: data.sender_name,
+            created_at: data.created_at,
+          });
+          break;
+        case 'policy_block':
+          setPolicyNotice(data.reason || 'This message was not sent.');
           break;
         case 'online':
           setOnlineUsers(prev => new Set([...prev, data.user_id]));
@@ -346,7 +441,7 @@ export default function Chat() {
           });
           break;
         case 'call_offer':
-          setIncomingCall({ senderId: data.sender_id, senderName: data.sender_name, offer: data.offer });
+          setIncomingCall({ senderId: data.sender_id, senderName: data.sender_name, offer: data.offer, callType: data.call_type || 'video' });
           break;
         case 'call_answer':
           handleAnswer(data.answer);
@@ -391,16 +486,32 @@ export default function Chat() {
   }, [token]);
 
   // Conversation socket — bound to the active conversation for messaging.
+  // Auto-reconnects with exponential backoff so chat stays real-time without
+  // ever requiring a page reload (survives brief network/server hiccups).
   useEffect(() => {
     if (!activeConvId || !token) return;
-    const socket = new WebSocket(`${WS_BASE}${activeConvId}/`, wsAuth(token));
+    let socket = null;
+    let disposed = false;
+    let retries = 0;
 
-    socket.onmessage = (event) => {
-      try { wsMessageRef.current(JSON.parse(event.data)); } catch { /* ignore malformed frames */ }
+    const connectConv = () => {
+      if (disposed) return;
+      socket = new WebSocket(`${WS_BASE}${activeConvId}/`, wsAuth(token));
+      socket.onopen = () => { retries = 0; };
+      socket.onmessage = (event) => {
+        try { wsMessageRef.current(JSON.parse(event.data)); } catch { /* ignore malformed frames */ }
+      };
+      socket.onclose = () => {
+        if (disposed) return;
+        const delay = Math.min(1000 * 2 ** retries, 15000);
+        retries += 1;
+        setTimeout(connectConv, delay);
+      };
+      setWs(socket);
     };
 
-    setWs(socket);
-    return () => socket.close();
+    connectConv();
+    return () => { disposed = true; if (socket) socket.close(); };
   }, [activeConvId, token]);
 
   const sendWs = useCallback((data) => {
@@ -452,24 +563,38 @@ export default function Chat() {
     return pc;
   };
 
-  const startCall = async () => {
+  const startCall = async (type = 'video') => {
+    if (!activeConvId) return;
+    setPolicyNotice(null);
+    let session = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      session = await api.startCall(activeConvId, type);
+    } catch (err) {
+      setPolicyNotice(callErrorMessage(err));
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+      setCallType(type);
       setLocalStream(stream);
       setInCall(true);
+      setCallSessionId(session?.id ?? null);
 
       const pc = getPeerConnection();
       stream.getTracks().forEach(t => pc.addTrack(t, stream));
 
       const offer = await pc.createOffer();
       await pc.setLocalDescription(offer);
-      sendWs({ type: 'call_offer', offer: pc.localDescription });
+      sendWs({ type: 'call_offer', offer: pc.localDescription, call_type: type });
 
       for (const c of pendingCandidates.current) {
         await pc.addIceCandidate(new RTCIceCandidate(c));
       }
       pendingCandidates.current = [];
-    } catch { alert("Camera/mic access denied"); }
+    } catch {
+      if (session?.id) api.endCall(session.id).catch(() => {});
+      alert("Camera/mic access denied");
+    }
   };
 
   const handleAnswer = async (answer) => {
@@ -495,10 +620,23 @@ export default function Chat() {
 
   const acceptCall = async () => {
     if (!incomingCall) return;
+    setPolicyNotice(null);
+    const type = incomingCall.callType || 'video';
+    let session = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      session = await api.startCall(activeConvId, type);
+    } catch (err) {
+      sendWs({ type: 'call_end' });
+      setIncomingCall(null);
+      setPolicyNotice(callErrorMessage(err));
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: type === 'video', audio: true });
+      setCallType(type);
       setLocalStream(stream);
       setInCall(true);
+      setCallSessionId(session?.id ?? null);
       setIncomingCall(null);
 
       const pc = getPeerConnection();
@@ -513,7 +651,10 @@ export default function Chat() {
         await pc.addIceCandidate(new RTCIceCandidate(c));
       }
       pendingCandidates.current = [];
-    } catch { alert("Camera/mic access denied"); }
+    } catch {
+      if (session?.id) api.endCall(session.id).catch(() => {});
+      alert("Camera/mic access denied");
+    }
   };
 
   const rejectCall = () => {
@@ -522,6 +663,9 @@ export default function Chat() {
   };
 
   const endCall = () => {
+    const sid = callSessionId;
+    if (sid) api.endCall(sid).catch(() => {});
+    setCallSessionId(null);
     if (localStream) localStream.getTracks().forEach(t => t.stop());
     setLocalStream(null);
     setRemoteStream(null);
@@ -549,6 +693,8 @@ export default function Chat() {
           localStream={localStream}
           remoteStream={remoteStream}
           onEnd={endCall}
+          callerName={otherUser.first_name || "User"}
+          callType={callType}
         />
       )}
 
@@ -559,6 +705,7 @@ export default function Chat() {
             callerName={incomingCall.senderName}
             onAccept={acceptCall}
             onReject={rejectCall}
+            callType={incomingCall.callType || 'video'}
           />
         )}
       </AnimatePresence>
@@ -596,7 +743,14 @@ export default function Chat() {
                 </p>
               </div>
               <button
-                onClick={startCall}
+                onClick={() => startCall('audio')}
+                className="h-9 w-9 rounded-full bg-foreground/5 text-muted-foreground hover:text-foreground hover:bg-foreground/10 flex items-center justify-center transition"
+                title="Start audio call"
+              >
+                <Phone className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => startCall('video')}
                 className="h-9 w-9 rounded-full bg-emerald/10 text-emerald flex items-center justify-center hover:bg-emerald/20 transition"
                 title="Start video call"
               >
@@ -643,6 +797,15 @@ export default function Chat() {
 
             {/* Input area */}
             <div className="border-t border-border/40 shrink-0">
+              {policyNotice && (
+                <div className="flex items-start gap-2 px-4 pt-3">
+                  <ShieldAlert className="h-4 w-4 text-gold shrink-0 mt-0.5" />
+                  <p className="text-xs text-gold leading-relaxed flex-1">{policyNotice}</p>
+                  <button onClick={() => setPolicyNotice(null)} className="text-muted-foreground hover:text-foreground transition shrink-0">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
               {showVoice ? (
                 <VoiceRecorder
                   onSend={handleVoiceSend}

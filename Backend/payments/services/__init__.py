@@ -1,5 +1,3 @@
-import os
+from payments.services import flutterwave
 
-from payments.services import paystack
-
-__all__ = ['paystack']
+__all__ = ['flutterwave']

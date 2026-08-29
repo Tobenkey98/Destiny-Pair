@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Camera, Globe, MessageCircle, Mail, Phone, MapPin, ChevronDown } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -147,13 +147,13 @@ export function Footer() {
           {/* Contact strip */}
           <div className="mt-8 grid sm:grid-cols-3 gap-3 text-xs text-[color:var(--cream-soft)]/80">
             <div className="flex gap-2"><Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> pureintentions.globaltech@gmail.com</div>
-            <div className="flex gap-2"><Phone className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> +234 810 701 4197</div>
+            <div className="flex gap-2"><Phone className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> +234 806 430 3067</div>
             <div className="flex gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> Alakuko, Lagos</div>
           </div>
 
           <div className="mt-8 pt-6 border-t border-[color:var(--cream-soft)]/15 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between text-xs text-[color:var(--cream-soft)]/70">
             <div className="flex flex-col gap-1">
-              <span>&copy; 2026 DestinyPair.net — Purposeful Introductions. Healthy Marriages.</span>
+              <span>&copy; 2026 DestinyPair.net â€” Purposeful Introductions. Healthy Marriages.</span>
               <span className="flex flex-wrap gap-x-4 gap-y-1">
                 <span>BN: 9596573</span>
                 <span>TIN: 2622446788316</span>
@@ -171,3 +171,4 @@ export function Footer() {
     </footer>
   );
 }
+

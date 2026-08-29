@@ -62,7 +62,7 @@ function SocialComplete() {
         date_of_birth: dobStr,
       };
       await updateProfile(payload);
-      navigate("/dashboard");
+      navigate(user?.public_id ? `/dashboard/profile/${user.public_id}` : "/dashboard");
     } catch (err) {
       setError(err.data?.error || err.message || "Update failed");
     } finally {

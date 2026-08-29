@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
@@ -30,6 +31,14 @@ from profiles.serializers import (
     PendingDenominationSerializer,
 )
 from profiles.services import DenominationService
+
+from chatbot.views import (
+    AdminChatbotTicketListView,
+    AdminChatbotTicketDetailView,
+    AdminChatbotTicketUpdateView,
+    AdminChatbotConversationListView,
+    AdminChatbotStatsView,
+)
 
 User = get_user_model()
 
@@ -410,6 +419,23 @@ class AdminReportListView(APIView):
     permission_classes = [IsSuperAdminOrModerator]
 
     def get(self, request):
+        from notifications.models import Report
+
+        reports = (
+            Report.objects.select_related('reporter', 'reported_user')
+            .order_by('-created_at')[:100]
+        )
+        data = [{
+            'id': r.id,
+            'reporter_id': r.reporter_id,
+            'reporter_name': r.reporter.get_full_name() or r.reporter.email,
+            'reported_user_id': r.reported_user_id,
+            'reported_name': r.reported_user.get_full_name() or r.reported_user.email,
+            'reason': r.reason,
+            'description': r.description,
+            'created_at': r.created_at.isoformat(),
+        } for r in reports]
+
         AuditService.log(
             actor=request.user,
             action="Viewed Reports",
@@ -417,7 +443,117 @@ class AdminReportListView(APIView):
             target_model="Report",
             request=request,
         )
-        return Response({'reports': [], 'message': 'Report management coming soon.'})
+        return Response(data)
+
+
+class AdminModerationView(APIView):
+    """GET /api/admin/moderation/ — full moderation queue:
+    pending photos, member reports, and currently banned users."""
+
+    permission_classes = [IsSuperAdminOrModerator]
+
+    def get(self, request):
+        from profiles.models import Photo
+        from notifications.models import Report
+
+        photos = (
+            Photo.objects.filter(approved=False)
+            .select_related('user')
+            .order_by('-created_at')[:50]
+        )
+        photo_data = [{
+            'id': p.id,
+            'user_id': p.user_id,
+            'user_name': p.user.get_full_name() or p.user.email,
+            'image': request.build_absolute_uri(p.image.url) if p.image else '',
+            'is_ai_generated': p.is_ai_generated,
+            'created_at': p.created_at.isoformat(),
+        } for p in photos]
+
+        reports = (
+            Report.objects.select_related('reporter', 'reported_user')
+            .order_by('-created_at')[:100]
+        )
+        report_data = [{
+            'id': r.id,
+            'reporter_id': r.reporter_id,
+            'reporter_name': r.reporter.get_full_name() or r.reporter.email,
+            'reported_user_id': r.reported_user_id,
+            'reported_name': r.reported_user.get_full_name() or r.reported_user.email,
+            'reason': r.reason,
+            'description': r.description,
+            'created_at': r.created_at.isoformat(),
+        } for r in reports]
+
+        banned = (
+            User.objects.filter(is_banned=True)
+            .order_by('-date_joined')[:50]
+        )
+        banned_data = [{
+            'id': u.id,
+            'name': u.get_full_name() or u.email,
+            'email': u.email,
+            'date_joined': u.date_joined.isoformat(),
+        } for u in banned]
+
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Moderation Queue",
+            action_type="read",
+            target_model="Photo",
+            request=request,
+        )
+
+        return Response({
+            'pending_photos': photo_data,
+            'reports': report_data,
+            'banned_users': banned_data,
+        })
+
+
+class AdminMatchListView(APIView):
+    """GET /api/admin/matches/ — all matches across the platform, plus
+    aggregate counts for the admin Matches page."""
+
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def get(self, request):
+        from matching.models import Match
+        from chat.models import Conversation
+        from django.db.models import Count
+
+        matches = (
+            Match.objects.select_related('from_user', 'to_user')
+            .order_by('-created_at')[:200]
+        )
+        match_data = [{
+            'id': m.id,
+            'status': m.status,
+            'created_at': m.created_at.isoformat(),
+            'from_user': m.from_user_id,
+            'from_user_name': m.from_user.get_full_name() or m.from_user.email,
+            'to_user': m.to_user_id,
+            'to_user_name': m.to_user.get_full_name() or m.to_user.email,
+        } for m in matches]
+
+        status_counts = dict(
+            Match.objects.values('status').annotate(c=Count('id')).values_list('status', 'c')
+        )
+
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Admin Matches",
+            action_type="read",
+            target_model="Match",
+            request=request,
+        )
+
+        return Response({
+            'matches': match_data,
+            'total': Match.objects.count(),
+            'status_counts': status_counts,
+            'active_conversations': Conversation.objects.count(),
+        })
 
 
 class AdminRoleListView(APIView):
@@ -616,7 +752,19 @@ class AdminSignupView(APIView):
                 status=status.HTTP_201_CREATED,
             )
 
-        # Bootstrap the first administrator with the selected role.
+        # Bootstrap the first administrator with the selected role. Requires
+        # the ADMIN_BOOTSTRAP_KEY secret so an arbitrary visitor can never
+        # claim the super admin seat on a freshly deployed instance.
+        bootstrap_key = getattr(settings, 'ADMIN_BOOTSTRAP_KEY', '')
+        if not bootstrap_key:
+            return Response(
+                {'error': 'Admin bootstrap is disabled. The server owner must set ADMIN_BOOTSTRAP_KEY.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        provided_key = (request.data.get('bootstrap_key') or '').strip()
+        if not provided_key or provided_key != bootstrap_key:
+            return Response({'error': 'Invalid bootstrap key.'}, status=status.HTTP_403_FORBIDDEN)
+
         is_super = role == 'super_admin'
         user = User(email=email, username=email, first_name=first_name,
                     last_name=last_name, is_active=True, is_staff=True,
@@ -1099,6 +1247,22 @@ class AdminNotificationFeedView(APIView):
                     'message': f"Photo #{p.id} by user {p.user_id} needs review",
                     'created_at': p.created_at.isoformat(),
                     'link': '/admin/moderation',
+                })
+        except Exception:
+            pass
+
+        # Chatbot escalations (all admins — link straight to the bot reports)
+        try:
+            from chatbot.models import BotTicket
+            recent_tickets = BotTicket.objects.select_related('conversation', 'user').order_by('-created_at')[:5]
+            for t in recent_tickets:
+                name = (t.user.get_full_name() or t.user.email) if t.user else 'Guest'
+                events.append({
+                    'type': 'bot_ticket',
+                    'title': 'Chatbot Escalation',
+                    'message': f'{name} raised a support ticket: {t.get_category_display()}',
+                    'created_at': t.created_at.isoformat(),
+                    'link': '/admin/bot-reports',
                 })
         except Exception:
             pass

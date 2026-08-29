@@ -229,9 +229,10 @@ export const termsOfUse = {
       id: "contact",
       title: "31. Contact Information",
       body: [
-        { text: "Questions about these Terms can be sent to pureintentions.globaltech@gmail.com or +234 810 701 4197." },
+        { text: "Questions about these Terms can be sent to pureintentions.globaltech@gmail.com or +234 806 430 3067." },
       ],
     },
   ],
 };
+
 

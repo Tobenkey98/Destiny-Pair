@@ -7,6 +7,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { AdminProvider } from "./context/AdminContext";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
+import ChatWidget from "./components/ChatWidget";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import AdminLayout from "./pages/admin/AdminLayout";
 
@@ -67,6 +68,7 @@ const AdminAudit = lazyWithRetry(() => import("./pages/admin/Audit"));
 const AdminSettings = lazyWithRetry(() => import("./pages/admin/Settings"));
 const AdminDenominations = lazyWithRetry(() => import("./pages/admin/Denominations"));
 const AdminPendingDenominations = lazyWithRetry(() => import("./pages/admin/PendingDenominations"));
+const AdminChatbot = lazyWithRetry(() => import("./pages/admin/Chatbot"));
 
 function lazyWithRetry(factory) {
   return lazy(() =>
@@ -157,7 +159,7 @@ function App() {
                 <Route path="/dashboard" element={<DashboardLayout />}>
                   <Route index element={<Overview />} />
                   <Route path="profile" element={<ProfileCenter />} />
-                  <Route path="profile/:id" element={<ProfileView />} />
+                  <Route path="profile/:publicId" element={<ProfileView />} />
                   <Route path="discover" element={<DashboardDiscover />} />
                   <Route path="matches" element={<Matches />} />
                   <Route path="chat" element={<Chat />} />
@@ -188,12 +190,14 @@ function App() {
                   <Route path="notifications" element={<AdminNotifications />} />
                   <Route path="audit" element={<AdminAudit />} />
                   <Route path="settings" element={<AdminSettings />} />
-                  <Route path="denominations" element={<AdminDenominations />} />
+<Route path="denominations" element={<AdminDenominations />} />
                   <Route path="pending-denominations" element={<AdminPendingDenominations />} />
+                  <Route path="bot-reports" element={<AdminChatbot />} />
                 </Route>
-                <Route path="/*" element={<MainLayout />} />
+<Route path="/*" element={<MainLayout />} />
               </Routes>
             </Suspense>
+            <ChatWidget />
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

@@ -1,3 +1,0 @@
-status: 201
-body: {'gateway': 'monnify', 'reference': 'DP-4DF7EEB6A86F48B9A54A', 'payment_id': 18, 'checkout_url': 'https://sandbox.sdk.monnify.com/checkout/MNFY|88|20260807212419|000798', 'access_code': '', 'transaction_reference': 'MNFY|88|20260807212419|000798'}
-cleaned up

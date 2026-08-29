@@ -11,8 +11,7 @@ class Payment(models.Model):
     ]
 
     GATEWAY_CHOICES = [
-        ('paystack', 'Paystack'),
-        ('monnify', 'Monnify'),
+        ('flutterwave', 'Flutterwave'),
     ]
 
     user = models.ForeignKey(
@@ -36,7 +35,7 @@ class Payment(models.Model):
         blank=True,
         related_name='payments',
     )
-    gateway = models.CharField(max_length=20, choices=GATEWAY_CHOICES, default='paystack')
+    gateway = models.CharField(max_length=20, choices=GATEWAY_CHOICES, default='flutterwave')
     amount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     currency = models.CharField(max_length=10, default='NGN')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')

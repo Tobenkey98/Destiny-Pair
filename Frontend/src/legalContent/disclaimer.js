@@ -75,9 +75,10 @@ export const disclaimer = {
       id: "contact",
       title: "10. Questions",
       body: [
-        { text: "If you have any questions about this disclaimer, contact us at pureintentions.globaltech@gmail.com or +234 810 701 4197." },
+        { text: "If you have any questions about this disclaimer, contact us at pureintentions.globaltech@gmail.com or +234 806 430 3067." },
       ],
     },
   ],
 };
+
 

@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
 from chat.models import Conversation, Message
+from chat.content_policy import check_message_policy
 from accounts.models import Activity
 
 User = get_user_model()
@@ -16,10 +17,13 @@ PRESENCE_GROUP = 'presence'
 ONLINE_IDS_KEY = 'chat_online_ids'
 CONN_KEY_TPL = 'chat_conns_{user_id}'
 RATE_LIMIT_KEY_TPL = 'chat_rate_{user_id}'
+SIGNALING_KEY_TPL = 'chat_signal_{user_id}'
 
 ONLINE_TTL = 12 * 60 * 60
 RATE_LIMIT_WINDOW = 60
 RATE_LIMIT_MAX = 90
+SIGNALING_WINDOW = 60
+SIGNALING_MAX = 120
 MAX_MESSAGE_LEN = 4000
 
 CONTROL_CHARS_RE = re.compile(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]')
@@ -46,6 +50,41 @@ def extract_token(scope):
     return None
 
 
+ALLOWED_ORIGINS = None
+
+
+def origin_allowed(scope):
+    """Reject cross-site WebSocket handshakes (CSWSH / DNS-rebinding guard).
+
+    Browsers always send an ``Origin`` (or ``Sec-WebSocket-Origin``) header on
+    WebSocket upgrades; non-browser clients may omit it and are allowed through.
+    """
+    global ALLOWED_ORIGINS
+    if ALLOWED_ORIGINS is None:
+        from django.conf import settings
+        allowed = {
+            'http://localhost:5173', 'http://127.0.0.1:5173',
+            'http://localhost:8002', 'http://127.0.0.1:8002',
+            'http://localhost:8005', 'http://127.0.0.1:8005',
+        }
+        for host in getattr(settings, 'ALLOWED_HOSTS', []) or []:
+            if host == '*':
+                continue
+            allowed.add(f'http://{host}')
+            allowed.add(f'https://{host}')
+        for origin in getattr(settings, 'CORS_ALLOWED_ORIGINS', []) or []:
+            allowed.add(origin)
+        frontend_url = getattr(settings, 'FRONTEND_URL', '') or ''
+        if frontend_url:
+            allowed.add(frontend_url)
+        ALLOWED_ORIGINS = allowed
+
+    for key, value in scope.get('headers') or []:
+        if key in (b'origin', b'sec-websocket-origin'):
+            return value.decode('latin-1') in ALLOWED_ORIGINS
+    return True
+
+
 class PresenceConsumerBase(AsyncWebsocketConsumer):
     """Base consumer implementing a global, cache-backed presence system.
 
@@ -56,6 +95,9 @@ class PresenceConsumerBase(AsyncWebsocketConsumer):
     """
 
     async def connect(self):
+        if not origin_allowed(self.scope):
+            await self.close(code=4004)
+            return
         self.user = await self.authenticate_user()
         if self.user is None:
             await self.close(code=4001)
@@ -109,7 +151,10 @@ class PresenceConsumerBase(AsyncWebsocketConsumer):
             user = User.objects.get(id=access['user_id'])
         except (User.DoesNotExist, KeyError, AttributeError, TypeError):
             return None
-        if not user.is_active:
+        if not user.is_active or getattr(user, 'is_banned', False):
+            return None
+        stamp = access.get('stamp')
+        if stamp is not None and stamp != (user.security_stamp or ''):
             return None
         return user
 
@@ -147,6 +192,15 @@ class PresenceConsumerBase(AsyncWebsocketConsumer):
         cache.set(key, count + 1, RATE_LIMIT_WINDOW)
         return True
 
+    @database_sync_to_async
+    def allow_signaling(self, user_id):
+        key = SIGNALING_KEY_TPL.format(user_id=user_id)
+        count = int(cache.get(key, 0) or 0)
+        if count >= SIGNALING_MAX:
+            return False
+        cache.set(key, count + 1, SIGNALING_WINDOW)
+        return True
+
     async def send_presence_snapshot(self):
         online = await self.get_online_ids()
         online.discard(self.user.id)
@@ -180,6 +234,9 @@ class ChatConsumer(PresenceConsumerBase):
     """Per-conversation messaging socket with global presence participation."""
 
     async def connect(self):
+        if not origin_allowed(self.scope):
+            await self.close(code=4004)
+            return
         raw_conv = self.scope['url_route']['kwargs'].get('conv_id')
         if not raw_conv or not CONV_ID_RE.match(raw_conv):
             await self.close(code=4400)
@@ -230,12 +287,25 @@ class ChatConsumer(PresenceConsumerBase):
 
         msg_type = data.get('type')
 
+        if msg_type in ('audio', 'call_offer', 'call_answer', 'ice_candidate', 'call_end'):
+            if not await self.allow_signaling(self.user.id):
+                return
+
         if msg_type == 'message':
             if not await self.allow_message(self.user.id):
                 await self.send(text_data=json.dumps({'type': 'rate_limited', 'message': 'Slow down'}))
                 return
             text = sanitize_text(data.get('text'))
             if not text:
+                return
+            violation = check_message_policy(text)
+            if violation:
+                await self.send(text_data=json.dumps({
+                    'type': 'policy_block',
+                    'code': violation['code'],
+                    'category': violation['category'],
+                    'reason': violation['reason'],
+                }))
                 return
             if not await self.check_message_quota():
                 await self.send(text_data=json.dumps({
@@ -298,6 +368,7 @@ class ChatConsumer(PresenceConsumerBase):
                     'sender_id': self.user.id,
                     'sender_name': self.user.first_name or 'User',
                     'offer': data.get('offer'),
+                    'call_type': data.get('call_type', 'video'),
                 }
             )
             return
@@ -369,6 +440,7 @@ class ChatConsumer(PresenceConsumerBase):
                 'sender_id': event['sender_id'],
                 'sender_name': event['sender_name'],
                 'offer': event['offer'],
+                'call_type': event.get('call_type', 'video'),
             }))
 
     async def call_answer(self, event):

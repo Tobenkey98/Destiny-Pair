@@ -19,7 +19,7 @@ export const refundPolicy = {
       id: "cancellation",
       title: "2. Cancelling Your Subscription",
       body: [
-        { text: "You may cancel your subscription at any time by contacting our support team at pureintentions.globaltech@gmail.com or +234 810 701 4197 and asking to cancel." },
+        { text: "You may cancel your subscription at any time by contacting our support team at pureintentions.globaltech@gmail.com or +234 806 430 3067 and asking to cancel." },
         { text: "Cancellation stops any future renewals. Unless you are eligible for a refund under this policy, your access continues for the remainder of the period you already paid for." },
       ],
     },
@@ -65,9 +65,10 @@ export const refundPolicy = {
       id: "contact",
       title: "8. Contact Us",
       body: [
-        { text: "Questions about this policy can be sent to pureintentions.globaltech@gmail.com or +234 810 701 4197. We aim to respond to every cancellation and refund request within 48 hours." },
+        { text: "Questions about this policy can be sent to pureintentions.globaltech@gmail.com or +234 806 430 3067. We aim to respond to every cancellation and refund request within 48 hours." },
       ],
     },
   ],
 };
+
 

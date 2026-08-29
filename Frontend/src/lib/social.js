@@ -13,9 +13,12 @@ export function initGoogle() {
   document.body.appendChild(script);
 }
 
+const FACEBOOK_SDK_VERSION = "v26.0";
+
 export function initFacebook() {
   if (facebookInitialized || document.getElementById("fb-script")) return;
   facebookInitialized = true;
+  const appId = import.meta.env.VITE_FACEBOOK_APP_ID || "";
   const script = document.createElement("script");
   script.id = "fb-script";
   script.src = "https://connect.facebook.net/en_US/sdk.js";
@@ -24,12 +27,15 @@ export function initFacebook() {
   script.onload = () => {
     if (window.FB) {
       FB.init({
-        appId: import.meta.env.VITE_FACEBOOK_APP_ID || "",
+        appId,
         cookie: true,
-        xfbml: true,
-        version: "v19.0",
+        xfbml: false,
+        version: FACEBOOK_SDK_VERSION,
       });
     }
+  };
+  script.onerror = () => {
+    facebookInitialized = false;
   };
   document.body.appendChild(script);
 }
@@ -64,7 +70,17 @@ export function loginWithGoogle() {
           }
         },
         error_callback: (err) => {
-          reject(new Error(err?.message || err?.details || "Google sign in cancelled"));
+          const type = err?.type || "";
+          const detail = err?.message || err?.details || "";
+          if (type === "popup_failed_to_open") {
+            reject(new Error("Google sign-in popup could not open. Please allow pop-ups for this site and try again."));
+          } else if (type === "popup_closed_by_user") {
+            reject(new Error(`Google sign in was cancelled. If an "Access blocked" page appeared in the popup, add this exact address (${window.location.origin}) to the Google Cloud OAuth "Authorized JavaScript origins" for this app.`));
+          } else if (type === "access_denied") {
+            reject(new Error("Google sign in was not authorized."));
+          } else {
+            reject(new Error(detail || "Google sign in failed. Please try again."));
+          }
         },
       });
       client.requestAccessToken();
@@ -76,6 +92,11 @@ export function loginWithGoogle() {
 
 export function loginWithFacebook() {
   return new Promise((resolve, reject) => {
+    const appId = import.meta.env.VITE_FACEBOOK_APP_ID || "";
+    if (!appId || appId === "your-facebook-app-id") {
+      reject(new Error("Facebook Login is not configured. Set VITE_FACEBOOK_APP_ID in .env"));
+      return;
+    }
     if (!window.FB) {
       reject(new Error("Facebook SDK not loaded yet. Try again."));
       return;
@@ -89,10 +110,21 @@ export function loginWithFacebook() {
             first_name: "",
             last_name: "",
           });
-        } else {
-          reject(new Error(response.status === "not_authorized"
-            ? "Facebook sign in was not authorized"
-            : "Facebook sign in cancelled"));
+          return;
+        }
+        if (response?.error) {
+          reject(new Error(`Facebook sign in failed: ${response.error.message || response.error.code || "Unknown error"}`));
+          return;
+        }
+        switch (response?.status) {
+          case "not_authorized":
+            reject(new Error("Facebook sign in was not authorized"));
+            break;
+          case "unknown":
+            reject(new Error("Facebook sign in did not complete. The popup closed without connecting. Check that this site's address (http://localhost:5174) is added to your Facebook app's domains / OAuth settings and that the app is in Live mode, then try again."));
+            break;
+          default:
+            reject(new Error("Facebook sign in failed. Please try again."));
         }
       },
       { scope: "public_profile,email" }

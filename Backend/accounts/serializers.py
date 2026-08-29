@@ -47,7 +47,7 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            'id', 'email', 'first_name', 'last_name', 'phone',
+            'id', 'public_id', 'email', 'first_name', 'last_name', 'phone',
             'date_of_birth', 'gender', 'city_state',
             'faith', 'denomination', 'denomination_name', 'place_of_worship',
             'highest_qualification', 'institution', 'profession', 'workplace',
@@ -68,7 +68,7 @@ class UserSerializer(serializers.ModelSerializer):
             'date_joined', 'primary_photo', 'cover_photo',
             'custom_denomination',
         )
-        read_only_fields = ('id', 'is_verified', 'is_profile_completed', 'date_joined')
+        read_only_fields = ('id', 'public_id', 'is_verified', 'is_profile_completed', 'date_joined')
 
     def update(self, instance, validated_data):
         custom = validated_data.pop('custom_denomination', None)
@@ -106,7 +106,7 @@ class DiscoverSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = (
-            'id', 'first_name', 'last_name', 'date_of_birth', 'gender',
+            'id', 'public_id', 'first_name', 'last_name', 'date_of_birth', 'gender',
             'city_state', 'faith', 'denomination', 'denomination_name',
             'highest_qualification', 'profession', 'about_self', 'love_language',
             'interests', 'hobbies', 'short_bio',

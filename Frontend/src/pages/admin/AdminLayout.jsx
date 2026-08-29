@@ -31,6 +31,7 @@ const ROLE_RESTRICTED_ROUTES = {
   '/admin/integrations': ['super_admin'],
   '/admin/denominations': ['super_admin', 'operations_admin'],
   '/admin/pending-denominations': ['super_admin', 'operations_admin'],
+  '/admin/bot-reports': ['super_admin', 'operations_admin'],
 };
 
 function getToken() {

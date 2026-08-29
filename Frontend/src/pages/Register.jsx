@@ -165,7 +165,7 @@ function Register() {
         payload = await loginWithFacebook();
       }
       const result = await socialAuth(payload);
-      navigate(result.created ? "/social-complete" : "/dashboard");
+      navigate(result.created ? "/social-complete" : (result.user?.public_id ? `/dashboard/profile/${result.user.public_id}` : "/dashboard"));
     } catch (err) {
       setError(err.data?.error || err.message || `${provider} sign up failed.`);
     } finally {

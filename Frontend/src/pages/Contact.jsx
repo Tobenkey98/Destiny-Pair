@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+﻿import { motion } from "framer-motion";
 import { Mail, Phone, MessageCircle, MapPin, Clock, Send } from "lucide-react";
 import { useState } from "react";
 import { PageHero, Reveal } from "../components/Section";
@@ -15,10 +15,10 @@ function Contact() {
           <div className="lg:col-span-2 space-y-4">
             {[
               { icon: Mail, title: "Email", body: "pureintentions.globaltech@gmail.com", grad: "bg-emerald" },
-              { icon: Phone, title: "Call", body: "+234 810 701 4197", grad: "bg-gold" },
-              { icon: MessageCircle, title: "WhatsApp", body: "+234 810 701 4197", grad: "bg-luxury" },
+              { icon: Phone, title: "Call", body: "+234 806 430 3067", grad: "bg-gold" },
+              { icon: MessageCircle, title: "WhatsApp", body: "+234 806 430 3067", grad: "bg-luxury" },
               { icon: MapPin, title: "Office", body: "Alakuko, Lagos", grad: "bg-emerald" },
-              { icon: Clock, title: "Hours", body: "Mon&ndash;Fri &bull; 9am &ndash; 6pm WAT", grad: "bg-gold" },
+              { icon: Clock, title: "Hours", body: "Monâ€“Fri â€¢ 9am â€“ 6pm WAT", grad: "bg-gold" },
             ].map((c, i) => (
               <Reveal key={i} delay={i * 0.06}>
                 <motion.div whileHover={{ x: 6 }} className={`p-5 rounded-2xl ${c.grad} ${c.grad === "bg-gold" ? "text-[color:var(--emerald-deep)]" : "text-[color:var(--cream-soft)]"} shadow-soft flex gap-4 items-center`}>
@@ -83,3 +83,4 @@ function Field({ label, type }) {
 }
 
 export default Contact;
+
