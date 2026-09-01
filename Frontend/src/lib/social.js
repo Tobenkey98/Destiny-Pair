@@ -1,16 +1,43 @@
 let googleInitialized = false;
 let facebookInitialized = false;
+let gsiPromise = null;
+
+function loadGoogleScript() {
+  if (gsiPromise) return gsiPromise;
+  gsiPromise = new Promise((resolve, reject) => {
+    if (document.getElementById("gsi-script")) {
+      if (typeof window.google?.accounts?.oauth2 !== "undefined") {
+        resolve();
+      } else {
+        const existing = document.getElementById("gsi-script");
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => { googleInitialized = false; reject(new Error("Failed to load Google Identity Services.")); }, { once: true });
+      }
+      return;
+    }
+    const script = document.createElement("script");
+    script.id = "gsi-script";
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => { window.__gsiLoaded = true; resolve(); };
+    script.onerror = () => {
+      googleInitialized = false;
+      gsiPromise = null;
+      reject(new Error("Failed to load Google Identity Services. Check your internet connection and try again."));
+    };
+    document.body.appendChild(script);
+  });
+  return gsiPromise;
+}
 
 export function initGoogle() {
-  if (googleInitialized || document.getElementById("gsi-script")) return;
+  if (googleInitialized || document.getElementById("gsi-script")) {
+    if (!gsiPromise) gsiPromise = loadGoogleScript();
+    return;
+  }
   googleInitialized = true;
-  const script = document.createElement("script");
-  script.id = "gsi-script";
-  script.src = "https://accounts.google.com/gsi/client";
-  script.async = true;
-  script.defer = true;
-  script.onload = () => { window.__gsiLoaded = true; };
-  document.body.appendChild(script);
+  gsiPromise = loadGoogleScript();
 }
 
 const FACEBOOK_SDK_VERSION = "v26.0";
@@ -40,17 +67,22 @@ export function initFacebook() {
   document.body.appendChild(script);
 }
 
-export function loginWithGoogle() {
+export async function loginWithGoogle() {
+  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+  if (!clientId) {
+    throw new Error("Google Client ID not configured. Set VITE_GOOGLE_CLIENT_ID in .env");
+  }
+  try {
+    if (document.getElementById("gsi-script") || typeof window.google?.accounts?.oauth2 === "undefined") {
+      await loadGoogleScript();
+    }
+  } catch (e) {
+    throw new Error(e.message || "Google Identity Services failed to load. Try again.");
+  }
+  if (!window.google?.accounts?.oauth2) {
+    throw new Error("Google Identity Services not loaded yet. Try again.");
+  }
   return new Promise((resolve, reject) => {
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-    if (!clientId) {
-      reject(new Error("Google Client ID not configured. Set VITE_GOOGLE_CLIENT_ID in .env"));
-      return;
-    }
-    if (!window.google?.accounts?.oauth2) {
-      reject(new Error("Google Identity Services not loaded yet. Try again."));
-      return;
-    }
     try {
       const client = window.google.accounts.oauth2.initTokenClient({
         client_id: clientId,
