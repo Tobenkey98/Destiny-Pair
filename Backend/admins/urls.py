@@ -14,6 +14,7 @@ urlpatterns = [
     path('counselling/', views.AdminCounsellingListView.as_view(), name='admin-counselling-list'),
     path('counselling/<int:session_id>/', views.AdminCounsellingSessionUpdateView.as_view(), name='admin-counselling-update'),
     path('payments/', views.AdminPaymentListView.as_view(), name='admin-payment-list'),
+    path('payments/<int:pk>/', views.AdminPaymentDetailView.as_view(), name='admin-payment-detail'),
     path('subscriptions/', views.AdminSubscriptionListView.as_view(), name='admin-subscription-list'),
     path('plans/', views.AdminPlanListView.as_view(), name='admin-plan-list'),
     path('reports/', views.AdminReportListView.as_view(), name='admin-report-list'),

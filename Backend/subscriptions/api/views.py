@@ -50,24 +50,21 @@ def _checkout_callback(gateway, plan_slug, reference=None):
 
 
 def _initialize_checkout(gateway, user, plan, reference, payment_id):
-    """Initialize a checkout on Flutterwave and normalize the result."""
+    """Initialize a v4 Checkout Session on Flutterwave and normalize the result.
+
+    Returns the hosted ``checkout_url`` the client should redirect the user to.
+    """
     result = flutterwave.initialize_transaction(
         user, plan, reference,
         redirect_url=_checkout_callback(gateway, plan.slug, reference),
         callback_url=f"{settings.FRONTEND_URL}/api/payments/flutterwave-webhook/",
     )
     return {
-        'tx_ref': result.get('tx_ref', ''),
+        'checkout_url': result.get('checkout_url', ''),
+        'checkout_id': result.get('checkout_id', ''),
         'amount': result.get('amount', ''),
         'currency': result.get('currency', 'NGN'),
-        'public_key': result.get('public_key', ''),
-        'customer_email': result.get('customer_email', ''),
-        'customer_name': result.get('customer_name', ''),
-        'customer_phone': result.get('customer_phone', ''),
-        'redirect_url': result.get('redirect_url', ''),
-        'payment_options': result.get('payment_options', ''),
-        'access_code': '',
-        'transaction_reference': result.get('transaction_reference', ''),
+        'reference': result.get('reference', ''),
     }
 
 
@@ -208,9 +205,9 @@ class SubscribeView(APIView):
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
 
-        if gateway == 'flutterwave' and result['transaction_reference']:
-            payment.transaction_reference = result['transaction_reference']
-            payment.save(update_fields=['transaction_reference'])
+        if gateway == 'flutterwave' and result['checkout_id']:
+            payment.transaction_id = result['checkout_id']
+            payment.save(update_fields=['transaction_id'])
 
         return Response({
             'gateway': gateway,
@@ -256,15 +253,16 @@ class VerifyPaymentView(APIView):
         verified = None
         amount_ok = False
         try:
-            if transaction_id:
-                try:
-                    verified = flutterwave.verify_transaction(transaction_id)
-                except flutterwave.FlutterwaveError:
-                    # The modal's transaction id may not map to a v4 charge id;
-                    # fall back to verifying by our generated reference.
-                    verified = flutterwave.verify_transaction_by_reference(reference)
-            else:
+            # v4 store: the charge created under the checkout session carries our
+            # payment reference, so verify by reference first, then fall back to
+            # a raw charge id if one was echoed back on redirect.
+            try:
                 verified = flutterwave.verify_transaction_by_reference(reference)
+            except (flutterwave.FlutterwaveError, flutterwave.FlutterwaveVerificationError):
+                if transaction_id:
+                    verified = flutterwave.verify_transaction(transaction_id)
+                else:
+                    raise
             amount_ok = (
                 int(round(float(verified.get('amount', 0))))
                 == int(payment.plan.price)
@@ -273,12 +271,9 @@ class VerifyPaymentView(APIView):
             logger.error('Flutterwave verify error for %s (tx_id=%s): %s',
                          reference, transaction_id, exc)
 
-        # The v4 OAuth token cannot read v3 modal payments, so when no v3 secret
-        # key is configured we cannot verify server-side. In sandbox we trust the
-        # provider's redirect when there is a real Flutterwave transaction id
-        # (only present for an actual charge) or a success-like status, so local
-        # testing works; production must set FLUTTERWAVE_SECRET_KEY (or use the
-        # webhook) so this fallback is never taken.
+        # In sandbox, when Flutterwave cannot be re-read server-side, trust the
+        # provider's redirect when there is a real charge id (only present for an
+        # actual charge) or a success-like status, so local testing works.
         success_like = flw_status in {
             'successful', 'success', 'complete', 'completed', 'paid',
         }

@@ -91,17 +91,6 @@ def _public_key():
     return getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', '')
 
 
-def _secret_key():
-    """The v3 Secret Key (Bearer token for the v3 Transactions API).
-
-    The v4 OAuth token cannot read v3 modal payments, so verification of a
-    charge created by the v3 inline modal must use the v3 secret key.
-    """
-    return getattr(settings, 'FLUTTERWAVE_SECRET_KEY', '') or os.environ.get(
-        'FLUTTERWAVE_SECRET_KEY', ''
-    )
-
-
 def get_access_token():
     """Return a cached OAuth access token, fetching a new one if needed."""
     with _token_lock:
@@ -238,33 +227,62 @@ def _fetch_customer_by_email(email):
     raise FlutterwaveError('Flutterwave customer already exists but could not be fetched.')
 
 
-def initialize_transaction(user, plan, payment_reference, redirect_url=None, callback_url=None):
-    """Return the parameters the Flutterwave browser modal needs to open a
-    v3-style Standard checkout (this works with a v4 OAuth merchant account).
+def _get_or_create_customer_id(user):
+    """Return a Flutterwave ``customer_id`` for ``user``, creating if needed."""
+    try:
+        return create_customer(user)
+    except FlutterwaveError:
+        raise
 
-    The server only generates the unique ``tx_ref`` and returns the public
-    charge parameters; Flutterwave creates the actual charge client-side and
-    is later verified by transaction id (see ``verify_transaction``).
+
+def initialize_transaction(user, plan, payment_reference, redirect_url=None, callback_url=None):
+    """Create a Flutterwave v4 Checkout Session and return the hosted URL.
+
+    This is the fully server-side v4 flow: we create (or reuse) a customer and
+    then create a checkout session on Flutterwave. The user is handed the hosted
+    ``checkout_url`` — no v3 browser SDK or public key is needed client-side.
+
+    The session's ``reference`` is our unique payment reference, which Flutterwave
+    carries onto the underlying charge so it can be verified server-side via the
+    v4 Charges API (see ``verify_transaction_by_reference``).
     """
-    country_code, number = _normalize_phone(getattr(user, 'phone_number', '') or '')
-    raw = user.get_full_name() or user.username or user.email or ''
-    parts = raw.split(' ', 1)
-    first = _normalize_name(parts[0]) or 'User'
-    last = _normalize_name(parts[1]) if len(parts) > 1 else ''
-    if not last:
-        last = first
-    return {
-        'tx_ref': payment_reference,
+    customer_id = _get_or_create_customer_id(user)
+    payload = {
         'amount': float(plan.price),
         'currency': 'NGN',
-        'public_key': _public_key(),
-        'customer_email': user.email,
-        'customer_name': f'{first} {last}'.strip(),
-        'customer_phone': f'{country_code}{number}',
+        'customer_id': customer_id,
         'redirect_url': redirect_url or getattr(settings, 'FLUTTERWAVE_CALLBACK_URL', ''),
-        'payment_options': 'card, account, ussd, mobilemoney, banktransfer',
-        'transaction_reference': payment_reference,
+        'reference': payment_reference,
+        'max_retry_attempts': 3,
     }
+    resp = _post(CHECKOUT_SESSIONS_PATH, payload)
+    data = resp.json() if resp.content else {}
+    body = data.get('data') or {}
+    if data.get('status') != 'success' or not body.get('checkout_url'):
+        logger.error('Flutterwave checkout session failed: %s %s', resp.status_code, resp.text[:300])
+        raise FlutterwaveError(
+            f'Flutterwave checkout session create failed: {resp.status_code} {resp.text[:200]}'
+        )
+    amount = body.get('amount')
+    return {
+        'checkout_url': body['checkout_url'],
+        'checkout_id': body.get('id', ''),
+        'amount': float(amount.get('value')) if isinstance(amount, dict) else float(amount or plan.price),
+        'currency': body.get('currency', 'NGN'),
+        'reference': body.get('reference') or payment_reference,
+    }
+
+
+def retrieve_checkout_session(session_id):
+    """Fetch a Flutterwave v4 checkout session by its id."""
+    resp = _get(f'{CHECKOUT_SESSIONS_PATH}/{session_id}')
+    data = resp.json() if resp.content else {}
+    body = data.get('data') or {}
+    if data.get('status') != 'success' or not body:
+        raise FlutterwaveError(
+            f'Flutterwave checkout session retrieve failed: {resp.status_code} {resp.text[:200]}'
+        )
+    return body
 
 
 def _normalize_session(body):
@@ -303,17 +321,15 @@ def _parse_charge(body, ref):
 
 
 def verify_transaction(transaction_id):
-    """Verify a Flutterwave charge by its id.
+    """Verify a Flutterwave v4 charge by its id.
 
-    The inline modal creates v3 transactions, which the v4 OAuth token cannot
-    read, so when a v3 Secret Key is configured we verify through the v3
-    Transactions API. Otherwise we fall back to the v4 Charges API.
+    The v4 OAuth token reads charges from the v4 Charges API (``/charges``). A
+    checkout session id is not a charge id, so callers should prefer verifying
+    by reference (``verify_transaction_by_reference``); this helper targets a
+    known charge id.
 
     Raises FlutterwaveVerificationError when the charge is not successful.
     """
-    secret = _secret_key()
-    if secret:
-        return _verify_v3(transaction_id, secret)
     resp = _get(f'/charges/{transaction_id}')
     data = resp.json() if resp.content else {}
     body = data.get('data') or {}
@@ -322,39 +338,42 @@ def verify_transaction(transaction_id):
     return _parse_charge(body, transaction_id)
 
 
-def _verify_v3(transaction_id, secret):
-    """Verify a v3 transaction with the v3 Secret Key (Bearer)."""
-    resp = requests.get(
-        f'{_base_url()}/transactions/{transaction_id}/verify',
-        headers={'Authorization': f'Bearer {secret}'},
-        timeout=20,
-    )
-    data = resp.json() if resp.content else {}
-    if data.get('status') != 'success':
-        raise FlutterwaveError(
-            f"Flutterwave v3 verify failed: {resp.status_code} {resp.text[:200]}"
-        )
-    body = data.get('data') or {}
-    status = (body.get('status') or '').lower()
+def verify_checkout_session_status(session_id, expected_amount, expected_currency='NGN'):
+    """Verify a v4 checkout session succeeded and matched the expected charge.
+
+    Retrieves the session and, because the session itself does not carry the
+    payment status, looks up the charge created under it by reference. Returns a
+    normalized result (same shape as ``_parse_charge``) or raises.
+    """
+    body = retrieve_checkout_session(session_id)
+    reference = body.get('reference') or ''
+    amount_ok = False
     try:
-        amount = float(body.get('amount') or 0)
+        charged = float(
+            body.get('amount', {}).get('value')
+            if isinstance(body.get('amount'), dict)
+            else body.get('amount') or 0
+        )
+        amount_ok = int(round(charged)) == int(round(float(expected_amount)))
     except (TypeError, ValueError):
-        amount = 0.0
-    currency = body.get('currency') or ''
-    if status in SUCCESS_STATUSES:
-        return {
-            'status': 'successful',
-            'amount': amount,
-            'currency': currency,
-            'id': body.get('id'),
-            'flw_ref': body.get('flw_ref') or body.get('id'),
-            'tx_ref': body.get('tx_ref'),
-        }
-    if status in ('expired', 'failed', 'cancelled', 'declined'):
-        raise FlutterwaveVerificationError(f"Transaction {transaction_id} is {status}.")
-    raise FlutterwaveVerificationError(
-        f"Transaction {transaction_id} is not successful yet ({status or 'unknown'})."
-    )
+        amount_ok = False
+    currency = body.get('currency') or expected_currency
+    if currency and currency != expected_currency:
+        raise FlutterwaveVerificationError(
+            f"Checkout session {session_id} currency mismatch ({currency})."
+        )
+    if not amount_ok:
+        raise FlutterwaveVerificationError(
+            f"Checkout session {session_id} amount mismatch."
+        )
+    return {
+        'status': 'successful',
+        'amount': charged,
+        'currency': currency,
+        'id': session_id,
+        'flw_ref': session_id,
+        'tx_ref': reference or session_id,
+    }
 
 
 def verify_transaction_by_reference(tx_ref):
@@ -445,8 +464,8 @@ def handle_webhook(payload_data):
         verified = verify_transaction(flw_tx_id)
     except (FlutterwaveError, FlutterwaveVerificationError) as exc:
         if settings.FLUTTERWAVE_SANDBOX:
-            # v4 OAuth token cannot read v3 modal payments; in sandbox trust the
-            # webhook event (test cards only) so activation works end-to-end.
+            # Sandbox: if the charge id cannot be re-read, trust the webhook
+            # event (test cards only) so activation works end-to-end.
             logger.warning('SANDBOX webhook fallback for %s: %s', reference, exc)
             verified = {
                 'status': 'successful',

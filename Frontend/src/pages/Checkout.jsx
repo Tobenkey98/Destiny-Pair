@@ -30,12 +30,20 @@ function Checkout() {
   const reference = searchParams.get("reference") || "";
   const txRef = searchParams.get("tx_ref") || "";
   const transactionReference = searchParams.get("transactionReference") || "";
-  const transactionId = searchParams.get("transaction_id") || "";
+  const transactionId =
+    searchParams.get("transaction_id") ||
+    searchParams.get("session_id") ||
+    searchParams.get("checkout_id") ||
+    searchParams.get("flw_ref") ||
+    "";
   const flwStatus = searchParams.get("status") || "";
-  const returnReference = reference || txRef || transactionReference || "";
+  const storedRef = sessionStorage.getItem("checkout_reference") || "";
+  const returnReference = reference || txRef || transactionReference || storedRef || "";
   // Flutterwave returns via tx_ref (and no explicit gateway param), so infer it.
   const returningGateway = txRef ? "flutterwave" : (searchParams.get("gateway") || "flutterwave");
-  const returning = Boolean(reference || txRef || transactionReference || searchParams.get("status"));
+  const returning = Boolean(
+    reference || txRef || transactionReference || storedRef || searchParams.get("status"),
+  );
 
   const [plans, setPlans] = useState(PLAN_FALLBACK);
   const [phase, setPhase] = useState("idle"); // idle | loading | redirecting | verifying | success | error
@@ -89,6 +97,8 @@ function Checkout() {
         .then(() => {
           setPhase("success");
           sessionStorage.removeItem("checkout_intent");
+          sessionStorage.removeItem("checkout_reference");
+          sessionStorage.removeItem("checkout_gateway");
         })
         .catch((err) => {
           const code = err.data?.error;
@@ -107,59 +117,6 @@ function Checkout() {
 
     attempt(2);
   }, [returning, plan, phase, searchParams, returnReference, transactionId]);
-
-  async function launchFlutterwave(data) {
-    let FlutterwaveCheckout = window.FlutterwaveCheckout;
-    if (!FlutterwaveCheckout) {
-      FlutterwaveCheckout = await new Promise((resolve, reject) => {
-        const s = document.createElement("script");
-        s.id = "flw-checkout-script";
-        s.src = "https://checkout.flutterwave.com/v3.js";
-        s.async = true;
-        s.onload = () => resolve(window.FlutterwaveCheckout);
-        s.onerror = () => reject(new Error("Could not load the Flutterwave checkout."));
-        document.body.appendChild(s);
-      });
-    }
-    const goBack = (status, txRef, txId) => {
-      try {
-        const url = new URL(data.redirect_url);
-        if (status) url.searchParams.set('status', status);
-        if (txRef) url.searchParams.set('tx_ref', txRef);
-        if (txId) url.searchParams.set('transaction_id', txId);
-        window.location.href = url.toString();
-      } catch {
-        setPhase("idle");
-      }
-    };
-    FlutterwaveCheckout({
-      public_key: data.public_key,
-      tx_ref: data.tx_ref,
-      amount: data.amount,
-      currency: data.currency,
-      customer: {
-        email: data.customer_email,
-        name: data.customer_name,
-        phonenumber: data.customer_phone,
-      },
-      payment_options: data.payment_options || 'card, account, ussd, mobilemoney, banktransfer',
-      redirect_url: data.redirect_url,
-      callback: (response) => {
-        const r = response || {};
-        const txId =
-          r.transaction_id ||
-          (r.data && r.data.transaction_id) ||
-          r.id ||
-          (r.data && r.data.id) ||
-          '';
-        goBack(r.status || 'successful', r.tx_ref || data.tx_ref, txId);
-      },
-      onclose: () => {
-        // User dismissed the modal without completing the payment.
-        goBack('cancelled', data.tx_ref, '');
-      },
-    });
-  }
 
   async function startCheckout(gateway) {
     if (!plan) return;
@@ -181,11 +138,16 @@ function Checkout() {
       );
 
       const data = await api.initPayment({ plan_slug: plan.slug, gateway });
-      if (!data.tx_ref || !data.public_key) {
-        throw new Error("Flutterwave is not fully configured (missing public key).");
+      if (!data.checkout_url) {
+        throw new Error("Flutterwave is not fully configured (no checkout URL returned).");
       }
       setPhase("redirecting");
-      await launchFlutterwave(data);
+      // Persist our server-side reference so we can re-verify after returning
+      // from the hosted checkout (Flutterwave does not always echo it back).
+      sessionStorage.setItem("checkout_reference", data.reference || data.ref || "");
+      sessionStorage.setItem("checkout_gateway", gateway);
+      // v4 Checkout Sessions: hand off to the hosted page Flutterwave returns.
+      window.location.href = data.checkout_url;
     } catch (err) {
       if (err.data?.error === "CONSENT_REQUIRED") {
         setError("Please review and accept the Terms of Use and the Refund & Cancellation Policy to continue.");

@@ -28,6 +28,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'cloudinary_storage',
+    'cloudinary',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
@@ -88,12 +90,48 @@ CHANNEL_LAYERS = {
     },
 }
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# --- Database ---
+# Production uses PostgreSQL. Configuration is env-driven so you can point at a
+# managed Postgres (Neon, RDS, Railway, Aiven, Heroku, etc.).
+#
+# Preferred: set DATABASE_URL (e.g. postgres://user:pass@host:5432/dbname,
+# or the full URL your provider gives you, often with ?sslmode=require).
+# Alternative: set the discrete DB_* variables below.
+#
+# If neither DATABASE_URL nor DB_ENGINE=postgresql is provided, it falls back to
+# SQLite so local development / the existing db.sqlite3 keeps working.
+if os.environ.get('DATABASE_URL'):
+    import dj_database_url
+
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=os.environ['DATABASE_URL'],
+            conn_max_age=600,
+            ssl_require=True,
+        )
     }
-}
+elif os.environ.get('DB_ENGINE', '').lower() in ('postgres', 'postgresql', 'pg'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'destinypair'),
+            'USER': os.environ.get('DB_USER', 'postgres'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', ''),
+            'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+            'CONN_MAX_AGE': 600,
+            'OPTIONS': {
+                'sslmode': os.environ.get('DB_SSLMODE', 'disable'),
+            },
+        }
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
@@ -125,24 +163,21 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-# Flutterwave (v4 — OAuth 2.0)
+# Flutterwave (v4 — OAuth 2.0 + Checkout Sessions)
 # Set FLUTTERWAVE_CLIENT_ID + FLUTTERWAVE_CLIENT_SECRET (the v4 API credentials
-# from the Flutterwave dashboard). FLUTTERWAVE_ENCRYPTION_KEY is only needed
-# for client-side card encryption (inline charges); it is unused by the hosted
-# checkout flow but stored for completeness.
+# from the Flutterwave dashboard). FLUTTERWAVE_ENCRYPTION_KEY is for client-side
+# card encryption (inline charges); it is unused by the hosted Checkout Sessions
+# flow but stored for completeness.
 # FLUTTERWAVE_SECRET_HASH is the webhook secret hash (set it so webhook
 # signatures are verified in production).
-# FLUTTERWAVE_PUBLIC_KEY is the browser-side "Public Key" from the Flutterwave
-# dashboard; it launches the Checkout SDK modal (safe to expose to the client).
-# FLUTTERWAVE_SECRET_KEY is the v3 "Secret Key" (Bearer token for the v3
-# Transactions API). The inline modal creates v3 transactions which the v4 OAuth
-# token cannot read, so this key is required to verify payments server-side.
+# FLUTTERWAVE_PUBLIC_KEY is the browser-side "Public Key" (legacy v3 modal; not
+# needed for the v4 Checkout Sessions flow, kept for reference).
+# The v4 flow creates a hosted checkout session server-side (no v3 secret key).
 # FLUTTERWAVE_SANDBOX: 1/true/yes -> sandbox API, empty -> live API.
 FLUTTERWAVE_CLIENT_ID = os.environ.get('FLUTTERWAVE_CLIENT_ID', '')
 FLUTTERWAVE_CLIENT_SECRET = os.environ.get('FLUTTERWAVE_CLIENT_SECRET', '')
 FLUTTERWAVE_ENCRYPTION_KEY = os.environ.get('FLUTTERWAVE_ENCRYPTION_KEY', '')
 FLUTTERWAVE_PUBLIC_KEY = os.environ.get('FLUTTERWAVE_PUBLIC_KEY', '')
-FLUTTERWAVE_SECRET_KEY = os.environ.get('FLUTTERWAVE_SECRET_KEY', '')
 FLUTTERWAVE_SECRET_HASH = os.environ.get('FLUTTERWAVE_SECRET_HASH', '')
 FLUTTERWAVE_SANDBOX = os.environ.get('FLUTTERWAVE_SANDBOX', '').lower() in ('1', 'true', 'yes', 'on')
 FLUTTERWAVE_CALLBACK_URL = os.environ.get(
@@ -167,6 +202,39 @@ SUGGESTIONS_CACHE_TTL = 60 * 60
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'uploads'
+
+# --- Cloudinary storage (production) ---
+# All Django file fields (ImageField, FileField — photos, covers, chat audio,
+# and any other uploaded files) are stored & served on Cloudinary when the
+# credentials below are set. cloudinary will raise "Missing required parameter
+# cloud_name" if credentials are missing, so storage only switches to Cloudinary
+# when all three env vars are present; otherwise it falls back to local media.
+CLOUDINARY_CLOUD_NAME = os.environ.get('CLOUDINARY_CLOUD_NAME', '')
+CLOUDINARY_API_KEY = os.environ.get('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.environ.get('CLOUDINARY_API_SECRET', '')
+
+if CLOUDINARY_CLOUD_NAME and CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    import cloudinary
+
+    cloudinary.config(
+        cloud_name=CLOUDINARY_CLOUD_NAME,
+        api_key=CLOUDINARY_API_KEY,
+        api_secret=CLOUDINARY_API_SECRET,
+        secure=True,
+    )
+    CLOUDINARY_STORAGE = {
+        'CLOUD_NAME': CLOUDINARY_CLOUD_NAME,
+        'API_KEY': CLOUDINARY_API_KEY,
+        'API_SECRET': CLOUDINARY_API_SECRET,
+        'SECURE': True,
+        'MEDIA_TAG': 'destinypair',
+        'STATIC_TAG': 'destinypair',
+    }
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    # Upload media under an organisation-wide folder so it's easy to manage.
+    CLOUDINARY_STORAGE['FOLDER'] = 'destinypair-media'
+else:
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
 
 SIGHTENGINE_API_USER = os.environ.get('SIGHTENGINE_API_USER', '')
 SIGHTENGINE_API_SECRET = os.environ.get('SIGHTENGINE_API_SECRET', '')

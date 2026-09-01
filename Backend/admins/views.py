@@ -301,25 +301,96 @@ class AdminPaymentListView(APIView):
     def get(self, request):
         try:
             from payments.models import Payment
-            payments = Payment.objects.all().order_by('-created_at')
+            payments = Payment.objects.select_related(
+                'user', 'plan', 'subscription'
+            ).all().order_by('-created_at')
         except Exception:
             payments = []
 
         data = []
         for p in payments:
+            user_name = ''
+            user_email = None
+            if p.user:
+                user_name = f"{p.user.first_name} {p.user.last_name}".strip()
+                user_email = p.user.email
             data.append({
                 'id': p.id,
-                'user_email': p.user.email if hasattr(p, 'user') and p.user else None,
-                'amount': str(p.amount) if hasattr(p, 'amount') else None,
-                'status': p.status if hasattr(p, 'status') else None,
-                'gateway': p.gateway if hasattr(p, 'gateway') else None,
-                'reference': p.reference if hasattr(p, 'reference') else None,
-                'created_at': p.created_at.isoformat() if hasattr(p, 'created_at') else None,
+                'user_name': user_name,
+                'user_email': user_email,
+                'plan_name': p.plan.name if p.plan else None,
+                'plan_slug': p.plan.slug if p.plan else None,
+                'amount': str(p.amount),
+                'currency': p.currency,
+                'status': p.status,
+                'gateway': p.gateway,
+                'payment_method': p.payment_method,
+                'reference': p.reference,
+                'transaction_reference': p.transaction_reference,
+                'transaction_id': p.transaction_id,
+                'subscription_status': p.subscription.status if p.subscription else None,
+                'period_start': p.period_start.isoformat() if p.period_start else None,
+                'period_end': p.period_end.isoformat() if p.period_end else None,
+                'created_at': p.created_at.isoformat() if p.created_at else None,
+                'metadata': p.metadata,
             })
 
         AuditService.log(
             actor=request.user,
             action="Viewed Payments",
+            action_type="read",
+            target_model="Payment",
+            request=request,
+        )
+
+        return Response(data)
+
+
+class AdminPaymentDetailView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def get(self, request, pk):
+        from payments.models import Payment
+        p = Payment.objects.select_related(
+            'user', 'plan', 'subscription'
+        ).filter(pk=pk).first()
+        if not p:
+            return Response({'error': 'NOT_FOUND'}, status=status.HTTP_404_NOT_FOUND)
+
+        data = {
+            'id': p.id,
+            'user': (
+                {'id': p.user.id, 'email': p.user.email,
+                 'name': f"{p.user.first_name} {p.user.last_name}".strip()}
+                if p.user else None
+            ),
+            'plan': (
+                {'id': p.plan.id, 'name': p.plan.name, 'slug': p.plan.slug,
+                 'price': str(p.plan.price)}
+                if p.plan else None
+            ),
+            'subscription': (
+                {'id': p.subscription.id, 'status': p.subscription.status,
+                 'active': p.subscription.active}
+                if p.subscription else None
+            ),
+            'gateway': p.gateway,
+            'amount': str(p.amount),
+            'currency': p.currency,
+            'status': p.status,
+            'payment_method': p.payment_method,
+            'reference': p.reference,
+            'transaction_reference': p.transaction_reference,
+            'transaction_id': p.transaction_id,
+            'period_start': p.period_start.isoformat() if p.period_start else None,
+            'period_end': p.period_end.isoformat() if p.period_end else None,
+            'created_at': p.created_at.isoformat() if p.created_at else None,
+            'metadata': p.metadata,
+        }
+
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Payment Detail",
             action_type="read",
             target_model="Payment",
             request=request,

@@ -5,3 +5,26 @@
 .env
 .env.*
 !.env.example
+
+# --- Python / Django ---
+__pycache__/
+*.py[cod]
+*.so
+*.sqlite3
+*.db
+Backend/db.sqlite3
+Backend/uploads/
+.env
+
+# --- Node / frontend ---
+node_modules/
+Frontend/node_modules/
+Frontend/dist/
+dist/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log

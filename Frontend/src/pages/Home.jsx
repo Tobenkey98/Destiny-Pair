@@ -15,6 +15,19 @@ function Home() {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const [recentUsers, setRecentUsers] = useState([]);
   const [plans, setPlans] = useState(null);
+  const heroImages = [
+    "/Man_and_woman_laughing_together.jpeg",
+    "/Man_and_woman_leaning.jpeg",
+    "/Man_and_woman_sitting_bench.jpeg",
+    "/Man_and_woman_walking_path.jpeg",
+    "/1st picture.jfif",
+  ];
+  const [heroIdx, setHeroIdx] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setHeroIdx((i) => (i + 1) % heroImages.length), 3000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     api.recentlyVerified().then(setRecentUsers).catch(() => {});
@@ -25,6 +38,17 @@ function Home() {
     <>
       {/* HERO */}
       <section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden bg-hero pt-24">
+        {/* Background photo slideshow (all images in public/) */}
+        <div className="absolute inset-0 z-0">
+          {heroImages.map((src, i) => (
+            <div
+              key={src}
+              className="absolute inset-0 bg-cover bg-center transition-opacity duration-[1200ms]"
+              style={{ backgroundImage: `url("${encodeURI(src)}")`, opacity: i === heroIdx ? 1 : 0 }}
+            />
+          ))}
+          <div className="absolute inset-0 bg-[color:var(--cream-soft)]/40 dark:bg-[color:var(--background)]/60" />
+        </div>
         <div className="absolute inset-0 pattern-grid opacity-30" />
         <motion.div style={{ y: heroY }} className="absolute inset-0 pointer-events-none">
           <div className="absolute top-32 left-[8%] h-72 w-72 rounded-full bg-emerald opacity-25 blur-3xl animate-glow-pulse" />
