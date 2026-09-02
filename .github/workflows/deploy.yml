@@ -1,0 +1,35 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Deployment Commands on VPS
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            # Navigate to the main project directory
+            cd /var/www/destinypair
+            
+            # Pull the newest code from GitHub
+            git pull origin main
+            
+            # Build the static frontend files
+            cd Frontend
+            npm install
+            npm run build
+            
+            # Apply any database changes and restart Django
+            cd ../Backend
+            source ../venv/bin/activate
+            python manage.py migrate
+            sudo systemctl restart gunicorn
