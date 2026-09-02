@@ -223,7 +223,8 @@ function ProfileSection({ section, isOpen, onToggle, user, onUpdate, photos, onU
         await onUpdate({ city_state: val });
       } else if (key === "denomination") {
         if (editValue === "others") {
-          await onUpdate({ denomination: 29, custom_denomination: editCustomDenom });
+          const othersId = (denominations.find(d => d.name?.trim().toLowerCase() === "others") || {}).id || 29;
+          await onUpdate({ denomination: othersId, custom_denomination: editCustomDenom });
         } else if (editValue) {
           await onUpdate({ denomination: parseInt(editValue, 10) });
         } else {
@@ -357,9 +358,10 @@ function ProfileSection({ section, isOpen, onToggle, user, onUpdate, photos, onU
                             <div className="flex-1 space-y-2">
                               <select value={editValue} onChange={e => { setEditValue(e.target.value); if (e.target.value !== "others") setEditCustomDenom(""); }} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] outline-none text-sm">
                                 <option value="">Select denomination</option>
-                                {denominations.map(d => (
-                                  <option key={d.id} value={d.id === 29 ? "others" : d.id}>{d.name}</option>
+                                {denominations.filter(d => d.name?.trim().toLowerCase() !== "others").map(d => (
+                                  <option key={d.id} value={d.id}>{d.name}</option>
                                 ))}
+                                <option value="others">Others</option>
                               </select>
                               {editValue === "others" && (
                                 <input type="text" value={editCustomDenom} onChange={e => setEditCustomDenom(e.target.value)} className="w-full px-3 py-2 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] outline-none text-sm" placeholder="Enter your denomination" />

@@ -330,26 +330,7 @@ function Home() {
             </div>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { quote: "We were both serious about marriage and DestinyPair honored that. Within months, I met my husband &mdash; and our journey began with prayer.", name: "Adaeze & Kelechi", loc: "Lagos &bull; Christian Union" },
-              { quote: "The vetting process gave my family peace of mind. Every introduction felt thoughtful, respectful, and faith-centred.", name: "Grace & Emmanuel", loc: "Abuja &bull; Christian Union" },
-              { quote: "I had almost given up. The matchmakers truly listened. Today, I am engaged to a woman of substance and faith.", name: "Tunde & Folake", loc: "Ibadan &bull; Christian Union" },
-            ].map((t, i) => (
-              <Reveal key={i} delay={i * 0.1}>
-                <motion.div whileHover={{ y: -6 }} className="relative p-8 rounded-3xl glass shadow-soft hover:shadow-luxe transition-all h-full">
-                  <div className="absolute top-6 right-6 text-6xl font-display text-[color:var(--gold-royal)]/30 leading-none">&quot;</div>
-                  <div className="flex gap-1 mb-4">{[1,2,3,4,5].map(i => <Star key={i} className="h-4 w-4 fill-[color:var(--gold-royal)] text-[color:var(--gold-royal)]" />)}</div>
-                  <p className="text-foreground/90 leading-relaxed italic">&ldquo;{t.quote}&rdquo;</p>
-                  <div className="mt-6 pt-6 border-t border-border flex items-center gap-3">
-                    <div className="h-11 w-11 rounded-full bg-gold" />
-                    <div>
-                      <div className="font-semibold">{t.name}</div>
-                      <div className="text-xs text-muted-foreground">{t.loc}</div>
-                    </div>
-                  </div>
-                </motion.div>
-              </Reveal>
-            ))}
+            {[]}
           </div>
         </div>
       </section>

@@ -153,7 +153,7 @@ export function Footer() {
 
           <div className="mt-8 pt-6 border-t border-[color:var(--cream-soft)]/15 flex flex-col md:flex-row gap-3 items-start md:items-center justify-between text-xs text-[color:var(--cream-soft)]/70">
             <div className="flex flex-col gap-1">
-              <span>&copy; 2026 DestinyPair.net â€” Purposeful Introductions. Healthy Marriages.</span>
+              <span>&copy; 2026 DestinyPair.net &mdash; Purposeful Introductions. Healthy Marriages.</span>
               <span className="flex flex-wrap gap-x-4 gap-y-1">
                 <span>BN: 9596573</span>
                 <span>TIN: 2622446788316</span>

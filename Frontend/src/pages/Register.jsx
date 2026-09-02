@@ -131,7 +131,8 @@ function Register() {
         consent_terms: form.consent2 && form.consent3,
         consent_privacy: form.consent2 && form.consent3,
       });
-      const denominationId = form.denomination === "others" ? 29 : (form.denomination || "");
+      const othersId = (denominations.find(d => d.name?.trim().toLowerCase() === "others") || {}).id || 29;
+      const denominationId = form.denomination === "others" ? othersId : (form.denomination || "");
       const pending = {
         last_name: form.last_name, phone: form.phone,
         dob_day: form.dob_day, dob_month: form.dob_month, dob_year: form.dob_year,
@@ -342,9 +343,10 @@ function Register() {
                           <label className="block text-sm font-semibold mb-2">Denomination</label>
                           <select value={form.denomination} onChange={e => { set("denomination", e.target.value); if (e.target.value !== "others") set("custom_denomination", ""); }} className={`w-full px-4 py-3 rounded-xl bg-background border ${fieldErrors.denomination ? "border-destructive" : "border-border"} focus:border-[color:var(--gold-royal)] outline-none`}>
                             <option value="">Select denomination</option>
-                            {denominations.map(d => (
-                              <option key={d.id} value={d.id === 29 ? "others" : d.id}>{d.name}</option>
+                            {denominations.filter(d => d.name?.trim().toLowerCase() !== "others").map(d => (
+                              <option key={d.id} value={d.id}>{d.name}</option>
                             ))}
+                            <option value="others">Others</option>
                           </select>
                           {fieldErrors.denomination && <p className="text-xs text-destructive mt-1">{fieldErrors.denomination}</p>}
                         </div>

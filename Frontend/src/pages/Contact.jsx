@@ -18,7 +18,7 @@ function Contact() {
               { icon: Phone, title: "Call", body: "+234 806 430 3067", grad: "bg-gold" },
               { icon: MessageCircle, title: "WhatsApp", body: "+234 806 430 3067", grad: "bg-luxury" },
               { icon: MapPin, title: "Office", body: "Alakuko, Lagos", grad: "bg-emerald" },
-              { icon: Clock, title: "Hours", body: "Monâ€“Fri â€¢ 9am â€“ 6pm WAT", grad: "bg-gold" },
+              { icon: Clock, title: "Hours", body: "Mon&ndash;Fri &bull; 9am &ndash; 6pm WAT", grad: "bg-gold" },
             ].map((c, i) => (
               <Reveal key={i} delay={i * 0.06}>
                 <motion.div whileHover={{ x: 6 }} className={`p-5 rounded-2xl ${c.grad} ${c.grad === "bg-gold" ? "text-[color:var(--emerald-deep)]" : "text-[color:var(--cream-soft)]"} shadow-soft flex gap-4 items-center`}>

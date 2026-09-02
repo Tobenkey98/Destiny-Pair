@@ -53,7 +53,8 @@ function SocialComplete() {
       const dobStr = form.dob_year && monthIndex && form.dob_day
         ? `${form.dob_year}-${monthIndex}-${String(form.dob_day).padStart(2, "0")}`
         : "";
-      const denominationId = form.denomination === "others" ? 29 : (form.denomination || "");
+      const othersId = (denominations.find(d => d.name?.trim().toLowerCase() === "others") || {}).id || 29;
+      const denominationId = form.denomination === "others" ? othersId : (form.denomination || "");
       const payload = {
         ...form,
         faith: "Christianity",
@@ -123,9 +124,10 @@ function SocialComplete() {
             <label className="block text-sm font-semibold mb-2">Denomination</label>
             <select value={form.denomination} onChange={e => { set("denomination", e.target.value); if (e.target.value !== "others") set("custom_denomination", ""); }} className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] outline-none">
               <option value="">Select denomination</option>
-              {denominations.map(d => (
-                <option key={d.id} value={d.id === 29 ? "others" : d.id}>{d.name}</option>
+              {denominations.filter(d => d.name?.trim().toLowerCase() !== "others").map(d => (
+                <option key={d.id} value={d.id}>{d.name}</option>
               ))}
+              <option value="others">Others</option>
             </select>
           </div>
           {form.denomination === "others" && (
