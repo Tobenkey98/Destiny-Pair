@@ -175,9 +175,12 @@ function Register() {
   }
 
   useEffect(() => {
+    api.getDenominations().then(data => setDenominations(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     initGoogle();
     initFacebook();
-    api.getDenominations().then(data => setDenominations(Array.isArray(data) ? data : [])).catch(() => {});
   }, []);
 
   const pwStrength = getPasswordStrength(form.password);

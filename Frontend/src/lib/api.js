@@ -300,11 +300,21 @@ export const api = {
     return request('/admin/heartbeat/', { method: 'POST' })
   },
 
-  getDenominations() {
-    return request('/auth/denominations/', { method: 'GET' })
+  async getDenominations() {
+    const data = await request('/auth/denominations/', { method: 'GET' })
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.results)) return data.results
+    if (Array.isArray(data?.data)) return data.data
+    if (Array.isArray(data?.denominations)) return data.denominations
+    return []
   },
-  getTestimonials() {
-    return request('/auth/testimonials/', { method: 'GET' })
+  async getTestimonials() {
+    const data = await request('/auth/testimonials/', { method: 'GET' })
+    if (Array.isArray(data)) return data
+    if (Array.isArray(data?.results)) return data.results
+    if (Array.isArray(data?.data)) return data.data
+    if (Array.isArray(data?.testimonials)) return data.testimonials
+    return []
   },
   chatbotSend(payload) {
     return request('/chatbot/', { method: 'POST', body: JSON.stringify(payload) });
