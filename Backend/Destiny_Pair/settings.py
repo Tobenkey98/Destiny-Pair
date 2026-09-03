@@ -11,11 +11,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-9$x&#c&@%vsrc!_k(9c8*do09ux@o0gogzei3^&t&+=fwnt#!(')
 # DEBUG and ALLOWED_HOSTS are env-driven so production can harden them
 # without code changes (e.g. DJANGO_DEBUG=0, ALLOWED_HOSTS=api.yourdomain.com).
+# NOTE: the live domains are part of the default below because the VPS runs
+# with the fallback when ALLOWED_HOSTS is unset there — without them Django
+# returns 400 (DisallowedHost) for every /api/* request in production while
+# local dev (localhost, DEBUG=1) keeps working.
 DEBUG = os.environ.get('DJANGO_DEBUG', '1').lower() in ('1', 'true', 'yes', 'on')
 ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
-        'ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1]',
+        'ALLOWED_HOSTS', 'localhost,127.0.0.1,[::1],destinypair.net,www.destinypair.net',
     ).split(',')
     if host.strip()
 ]
