@@ -61,7 +61,7 @@ function FAQ() {
   useSEO({
     title: "DestinyPair Frequently Asked Questions",
     description:
-      "Answers to common questions about DestinyPair — membership, matchmaking, messaging, subscriptions, calls, counselling, safety and payments.",
+      "Answers to common questions about DestinyPair — membership, connection, messaging, subscriptions, calls, counselling, safety and payments.",
     canonical: `${window.location.origin}/faq`,
   });
 

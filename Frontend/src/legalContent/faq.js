@@ -28,7 +28,7 @@ export const faqCategories = [
         a: "Yes. While DestinyPair primarily serves members in Nigeria, we welcome serious Christian singles anywhere in the world who are willing to build a marriage with a Nigerian partner.",
       },
       {
-        q: "Are there membership fees?",
+        q: "Is there a membership monthly subscription?",
         a: "Creating an account, building your profile and receiving basic matches are free. Paid subscriptions unlock premium features such as full messaging, advanced matching, calls and counselling. See the Membership page for current plans.",
       },
     ],
@@ -62,7 +62,7 @@ export const faqCategories = [
   },
   {
     id: "matching",
-    label: "Matchmaking & Compatibility",
+    label: "Connection & Compatibility",
     icon: "Heart",
     items: [
       {

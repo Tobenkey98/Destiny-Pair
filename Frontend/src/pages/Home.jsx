@@ -170,7 +170,7 @@ function Home() {
               { icon: Star, num: "25+", label: "Years of Experience", desc: "Decades shepherding faith-led unions." },
               { icon: BookOpen, num: "100%", label: "Faith Guided", desc: "Rooted in Christian values." },
               { icon: Heart, num: "1", label: "Marriage Focused", desc: "Built for forever &mdash; never casual." },
-              { icon: MapPin, num: "36", label: "States Coverage", desc: "Nationwide across Nigeria." },
+              { icon: MapPin, num: "36", label: "States Coverage", desc: "Nationwide across Nigeria & Nigerians Overseas." },
             ].map((c, i) => (
               <Reveal key={i} delay={i * 0.1}>
                 <motion.div whileHover={{ y: -8 }} className="group relative p-8 rounded-3xl bg-background border border-border shadow-soft hover:shadow-luxe transition-all overflow-hidden">
@@ -216,15 +216,15 @@ function Home() {
           <Reveal delay={0.2}>
             <span className="text-xs font-semibold tracking-[0.3em] uppercase text-gradient-gold">What is DestinyPair?</span>
             <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold leading-tight">
-              A sanctuary for those <span className="text-gradient-luxury italic">seeking forever</span>.
+              A sanctuary for those <span className="text-gradient-luxury italic">seeking &lsquo;Forever&rsquo;</span>.
             </h2>
             <p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-              DestinyPair is not a dating app. We are a faith-rooted marriage facilitation platform &mdash; pairing serious Christian singles in Nigeria who are ready for purposeful, intentional, and lasting unions.
+              DestinyPair is not a dating app. We are a faith-rooted marriage facilitation platform &mdash; introducing serious Christian singles in Nigeria who are ready for purposeful, intentional, and lasting unions.
             </p>
             <ul className="mt-8 space-y-4">
               {[
                 "Carefully vetted, faith-verified members only",
-                "Personal guidance from experienced matchmakers",
+                "Personal guidance from experienced Counselors",
                 "Pre-marital counselling with every introduction",
                 "Privacy, dignity, and discretion at every step",
               ].map((t, i) => (
@@ -249,7 +249,7 @@ function Home() {
             <div className="text-center mb-16 max-w-2xl mx-auto">
               <span className="text-xs font-semibold tracking-[0.3em] uppercase text-gradient-gold">The Journey</span>
               <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold">How It Works</h2>
-              <p className="mt-4 text-muted-foreground">Four sacred steps from registration to flourishing matrimony.</p>
+              <p className="mt-4 text-muted-foreground">Four sacred steps from registration to flourishing relationship.</p>
             </div>
           </Reveal>
 
@@ -258,7 +258,7 @@ function Home() {
             {[
               { n: "01", title: "Register", desc: "Create a faith-verified profile in minutes.", icon: Users },
               { n: "02", title: "Subscribe", desc: "Unlock guided introductions with a plan.", icon: Crown },
-              { n: "03", title: "Connect", desc: "Meet vetted matches aligned in faith & values.", icon: Heart },
+              { n: "03", title: "Connect", desc: "Meet vetted \u2018likes\u2019 aligned in faith & values.", icon: Heart },
               { n: "04", title: "Flourish", desc: "Begin pre-marital counselling and forever.", icon: Sparkles },
             ].map((s, i) => (
               <Reveal key={i} delay={i * 0.12}>
@@ -329,6 +329,9 @@ function Home() {
             <div className="text-center mb-16">
               <span className="text-xs font-semibold tracking-[0.3em] uppercase text-gradient-gold">Testimonies</span>
               <h2 className="mt-3 font-display text-4xl md:text-5xl font-bold">Stories of destined love</h2>
+              <p className="mt-4 text-muted-foreground">
+                <Link to="/contact" className="font-semibold text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)] hover:underline">Drop your testimony here</Link>
+              </p>
             </div>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
