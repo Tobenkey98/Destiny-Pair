@@ -20,6 +20,7 @@ export const NAV = [
   { label: "Notifications", to: "/admin/notifications", icon: Bell, group: "Operations", roles: ["super_admin", "operations_admin"] },
   { label: "Denominations", to: "/admin/denominations", icon: Church, group: "Operations", roles: ["super_admin", "operations_admin"] },
   { label: "Pending Denominations", to: "/admin/pending-denominations", icon: ListChecks, group: "Operations", roles: ["super_admin", "operations_admin"] },
+  { label: "Testimonials", to: "/admin/testimonials", icon: Quote, group: "Operations", roles: ["super_admin", "operations_admin"] },
   { label: "Analytics", to: "/admin/analytics", icon: FileBarChart2, group: "Content", roles: ["super_admin"] },
   { label: "Content", to: "/admin/content", icon: FileText, group: "Content", roles: ["super_admin"] },
   { label: "Support", to: "/admin/support", icon: Headphones, group: "System", roles: ["super_admin", "operations_admin"] },

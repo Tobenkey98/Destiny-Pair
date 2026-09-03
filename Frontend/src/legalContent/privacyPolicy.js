@@ -1,4 +1,4 @@
-﻿// Privacy Policy content â€” updated wording v1.1
+﻿// Privacy Policy content — updated wording v1.1
 // Keep `version` and `lastUpdated` in sync with Backend/accounts/legal.py.
 
 export const privacyPolicy = {
@@ -46,7 +46,7 @@ export const privacyPolicy = {
       title: "5. How We Share Information",
       body: [
         { text: "We do not sell your personal information. We share information only as needed to run the platform:" },
-        { text: "With other members, through what you choose to make visible on your public profile; with service providers who help us operate the platform (hosting, email delivery, payment processing, analytics), who are bound to protect your information; with our payment providers to process subscriptions â€” card details are handled by them and never pass through us; and where required by law, regulation or legal process." },
+        { text: "With other members, through what you choose to make visible on your public profile; with service providers who help us operate the platform (hosting, email delivery, payment processing, analytics), who are bound to protect your information; with our payment providers to process subscriptions — card details are handled by them and never pass through us; and where required by law, regulation or legal process." },
       ],
     },
     {
@@ -110,7 +110,7 @@ export const privacyPolicy = {
       id: "automated-decisions",
       title: "14. Automated Decision-Making",
       body: [
-        { text: "We use algorithms to suggest potentially compatible members based on the profile information members provide. These suggestions are guidance only â€” no automated system decides a match for you, and meaningful decisions about relationships are always made by the members themselves." },
+        { text: "We use algorithms to suggest potentially compatible members based on the profile information members provide. These suggestions are guidance only — no automated system decides a match for you, and meaningful decisions about relationships are always made by the members themselves." },
       ],
     },
     {

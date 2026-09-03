@@ -69,6 +69,7 @@ const AdminSettings = lazyWithRetry(() => import("./pages/admin/Settings"));
 const AdminDenominations = lazyWithRetry(() => import("./pages/admin/Denominations"));
 const AdminPendingDenominations = lazyWithRetry(() => import("./pages/admin/PendingDenominations"));
 const AdminChatbot = lazyWithRetry(() => import("./pages/admin/Chatbot"));
+const AdminTestimonials = lazyWithRetry(() => import("./pages/admin/Testimonials"));
 
 function lazyWithRetry(factory) {
   return lazy(() =>
@@ -192,6 +193,7 @@ function App() {
                   <Route path="settings" element={<AdminSettings />} />
 <Route path="denominations" element={<AdminDenominations />} />
                   <Route path="pending-denominations" element={<AdminPendingDenominations />} />
+                  <Route path="testimonials" element={<AdminTestimonials />} />
                   <Route path="bot-reports" element={<AdminChatbot />} />
                 </Route>
 <Route path="/*" element={<MainLayout />} />

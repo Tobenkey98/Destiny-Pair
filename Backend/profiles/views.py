@@ -3,9 +3,9 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Denomination
-from .serializers import DenominationSerializer
-from .services import DenominationService
+from .models import Denomination, Testimonial
+from .serializers import DenominationSerializer, TestimonialSerializer
+from .services import DenominationService, TestimonialService
 
 from django.conf import settings
 
@@ -120,3 +120,11 @@ class DenominationListView(generics.ListAPIView):
 
     def get_queryset(self):
         return DenominationService.get_approved()
+
+
+class TestimonialListView(generics.ListAPIView):
+    serializer_class = TestimonialSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return TestimonialService.get_active()

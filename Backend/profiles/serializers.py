@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Photo, CoverPhoto, Denomination, PendingDenomination
+from .models import Photo, CoverPhoto, Denomination, PendingDenomination, Testimonial
 
 
 class PhotoSerializer(serializers.ModelSerializer):
@@ -53,3 +53,26 @@ class PendingDenominationSerializer(serializers.ModelSerializer):
         model = PendingDenomination
         fields = ('id', 'name', 'user', 'user_email', 'approved', 'reviewed_by', 'reviewed_at', 'created_at')
         read_only_fields = ('id', 'approved', 'reviewed_by', 'reviewed_at', 'created_at')
+
+
+class TestimonialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Testimonial
+        fields = ('id', 'quote', 'name', 'location', 'approved', 'is_active', 'created_at')
+        read_only_fields = ('id', 'created_at')
+
+
+class TestimonialCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Testimonial
+        fields = ('quote', 'name', 'location', 'approved')
+
+    def validate_quote(self, value):
+        if not (value or '').strip():
+            raise serializers.ValidationError("Testimonial quote cannot be empty")
+        return (value or '').strip()
+
+    def validate_name(self, value):
+        if not (value or '').strip():
+            raise serializers.ValidationError("Testimonial name cannot be empty")
+        return (value or '').strip()

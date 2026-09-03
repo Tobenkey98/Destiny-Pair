@@ -1,10 +1,10 @@
-﻿// Disclaimer content â€” updated wording v1.1
+﻿// Disclaimer content — updated wording v1.1
 // Keep `version` and `lastUpdated` in sync with Backend/accounts/legal.py.
 
 export const disclaimer = {
   title: "Disclaimer",
   description:
-    "Please read carefully â€” DestinyPair facilitates introductions, but the decisions are always yours.",
+    "Please read carefully — DestinyPair facilitates introductions, but the decisions are always yours.",
   lastUpdated: "2026-08-01",
   version: "1.1",
   sections: [
@@ -54,7 +54,7 @@ export const disclaimer = {
       id: "verify-information",
       title: "7. Verify Information Yourself",
       body: [
-        { text: "We encourage members to independently verify information about other members before relying on it â€” including identity, employment, qualifications, family situation and intentions. A profile that appears on DestinyPair is not a guarantee of the truth of its contents." },
+        { text: "We encourage members to independently verify information about other members before relying on it — including identity, employment, qualifications, family situation and intentions. A profile that appears on DestinyPair is not a guarantee of the truth of its contents." },
       ],
     },
     {
@@ -68,7 +68,7 @@ export const disclaimer = {
       id: "safety",
       title: "9. Follow Our Safety Recommendations",
       body: [
-        { text: "We publish Community & Safety Guidelines to help you stay safe. You are strongly encouraged to follow them â€” including meeting in public places, telling someone where you are going, and never sending money to people you meet online." },
+        { text: "We publish Community & Safety Guidelines to help you stay safe. You are strongly encouraged to follow them — including meeting in public places, telling someone where you are going, and never sending money to people you meet online." },
       ],
     },
     {

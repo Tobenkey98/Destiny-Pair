@@ -15,6 +15,7 @@ function Home() {
   const heroOpacity = useTransform(scrollYProgress, [0, 1], [1, 0]);
   const [recentUsers, setRecentUsers] = useState([]);
   const [plans, setPlans] = useState(null);
+  const [testimonials, setTestimonials] = useState([]);
   const heroImages = [
     "/Man_and_woman_laughing_together.jpeg",
     "/Man_and_woman_leaning.jpeg",
@@ -32,6 +33,7 @@ function Home() {
   useEffect(() => {
     api.recentlyVerified().then(setRecentUsers).catch(() => {});
     api.getPlans().then(setPlans).catch(() => setPlans(PLAN_FALLBACK));
+    api.getTestimonials().then(data => setTestimonials(Array.isArray(data) ? data : [])).catch(() => {});
   }, []);
 
   return (
@@ -330,7 +332,22 @@ function Home() {
             </div>
           </Reveal>
           <div className="grid md:grid-cols-3 gap-6">
-            {[]}
+            {testimonials.map((t, i) => (
+              <Reveal key={t.id} delay={i * 0.1}>
+                <motion.div whileHover={{ y: -6 }} className="relative p-8 rounded-3xl glass shadow-soft hover:shadow-luxe transition-all h-full">
+                  <div className="absolute top-6 right-6 text-6xl font-display text-[color:var(--gold-royal)]/30 leading-none">&quot;</div>
+                  <div className="flex gap-1 mb-4">{[1,2,3,4,5].map(i => <Star key={i} className="h-4 w-4 fill-[color:var(--gold-royal)] text-[color:var(--gold-royal)]" />)}</div>
+                  <p className="text-foreground/90 leading-relaxed italic">&ldquo;{t.quote}&rdquo;</p>
+                  <div className="mt-6 pt-6 border-t border-border flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-full bg-gold" />
+                    <div>
+                      <div className="font-semibold">{t.name}</div>
+                      <div className="text-xs text-muted-foreground">{t.location || "Christian Union"}</div>
+                    </div>
+                  </div>
+                </motion.div>
+              </Reveal>
+            ))}
           </div>
         </div>
       </section>

@@ -1,4 +1,4 @@
-﻿// Refund & Cancellation Policy content â€” updated wording v1.1
+﻿// Refund & Cancellation Policy content — updated wording v1.1
 // Keep `version` and `lastUpdated` in sync with Backend/accounts/legal.py.
 
 export const refundPolicy = {
@@ -28,8 +28,8 @@ export const refundPolicy = {
       title: "3. When You May Be Eligible for a Refund",
       body: [
         { text: "Refunds are not automatic. Each request is reviewed by our support team on a case-by-case basis. A payment may be eligible for review where both of the following apply:" },
-        { text: "The refund request is made within 48 hours of the payment being made; and the subscription features have not been used â€” meaning you have not activated, started or materially used the paid services of your plan during that period." },
-        { text: "Even where these conditions are met, approval is at our reasonable discretion. Meeting the conditions makes a request eligible for review â€” it does not guarantee a refund." },
+        { text: "The refund request is made within 48 hours of the payment being made; and the subscription features have not been used — meaning you have not activated, started or materially used the paid services of your plan during that period." },
+        { text: "Even where these conditions are met, approval is at our reasonable discretion. Meeting the conditions makes a request eligible for review — it does not guarantee a refund." },
       ],
     },
     {
@@ -51,7 +51,7 @@ export const refundPolicy = {
       id: "processing",
       title: "6. Refund Processing Time",
       body: [
-        { text: "Once we confirm that a refund is due, we will process it back to the original payment method. Depending on your bank or payment provider, the refund may take 5â€“10 business days to appear in your account." },
+        { text: "Once we confirm that a refund is due, we will process it back to the original payment method. Depending on your bank or payment provider, the refund may take 5–10 business days to appear in your account." },
       ],
     },
     {

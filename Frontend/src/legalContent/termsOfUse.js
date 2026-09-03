@@ -1,10 +1,10 @@
-﻿// Terms of Use content â€” updated wording v1.1
+﻿// Terms of Use content — updated wording v1.1
 // Keep `version` and `lastUpdated` in sync with Backend/accounts/legal.py.
 
 export const termsOfUse = {
   title: "Terms of Use",
   description:
-    "The agreement between you and DestinyPair â€” what we offer, what we expect, and the boundaries that keep the community safe.",
+    "The agreement between you and DestinyPair — what we offer, what we expect, and the boundaries that keep the community safe.",
   lastUpdated: "2026-08-01",
   version: "1.1",
   sections: [
@@ -21,7 +21,7 @@ export const termsOfUse = {
       title: "2. Eligibility",
       body: [
         { text: "You must be at least 18 years old to use DestinyPair." },
-        { text: "DestinyPair is a marriage facilitation platform for single persons. By registering, you confirm that you are single â€” you are not married, and you are not in a committed relationship â€” and that you are legally eligible to marry under the laws applicable to you." },
+        { text: "DestinyPair is a marriage facilitation platform for single persons. By registering, you confirm that you are single — you are not married, and you are not in a committed relationship — and that you are legally eligible to marry under the laws applicable to you." },
         { text: "You also confirm that you are joining for the genuine purpose of finding a marriage partner, and that the information you provide is true and accurate." },
       ],
     },
@@ -74,7 +74,7 @@ export const termsOfUse = {
       title: "9. Fees and Payment",
       body: [
         { text: "Some features of DestinyPair require a paid subscription. Prices are displayed at checkout in Nigerian Naira. Payment is processed by licensed third-party gateways such as Paystack and Monnify." },
-        { text: "By subscribing, you agree to pay the fees for the plan you select. Your card details are never handled by us â€” they are processed on the gateway's secure platform." },
+        { text: "By subscribing, you agree to pay the fees for the plan you select. Your card details are never handled by us — they are processed on the gateway's secure platform." },
       ],
     },
     {
@@ -116,14 +116,14 @@ export const termsOfUse = {
       id: "no-guarantee-marriage",
       title: "15. No Guarantee of Marriage",
       body: [
-        { text: "DestinyPair cannot and does not guarantee that you will find a spouse, enter into a relationship, or marry. Our role is to facilitate introductions and provide guidance â€” the outcome depends on circumstances entirely beyond our control." },
+        { text: "DestinyPair cannot and does not guarantee that you will find a spouse, enter into a relationship, or marry. Our role is to facilitate introductions and provide guidance — the outcome depends on circumstances entirely beyond our control." },
       ],
     },
     {
       id: "no-guarantee-matching",
       title: "16. No Guarantee of Compatibility",
       body: [
-        { text: "We cannot guarantee who you will match with, the quality of any match, or that a suggested match will be compatible with you. Compatibility scores and suggestions are based on profile information and are guidance only â€” not a verdict." },
+        { text: "We cannot guarantee who you will match with, the quality of any match, or that a suggested match will be compatible with you. Compatibility scores and suggestions are based on profile information and are guidance only — not a verdict." },
       ],
     },
     {
@@ -152,7 +152,7 @@ export const termsOfUse = {
       title: "20. Termination",
       body: [
         { text: "You may delete your account at any time. We may suspend or terminate your account if you violate these Terms or our Community Guidelines, or if we reasonably believe your actions are harmful to the platform or its members." },
-        { text: "On termination, your right to use the platform ends. Sections that are intended to survive termination â€” including those on intellectual property, limitation of liability and governing law â€” will continue to apply." },
+        { text: "On termination, your right to use the platform ends. Sections that are intended to survive termination — including those on intellectual property, limitation of liability and governing law — will continue to apply." },
       ],
     },
     {

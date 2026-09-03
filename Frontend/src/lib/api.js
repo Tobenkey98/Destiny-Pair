@@ -303,6 +303,9 @@ export const api = {
   getDenominations() {
     return request('/auth/denominations/', { method: 'GET' })
   },
+  getTestimonials() {
+    return request('/auth/testimonials/', { method: 'GET' })
+  },
   chatbotSend(payload) {
     return request('/chatbot/', { method: 'POST', body: JSON.stringify(payload) });
   },
@@ -338,6 +341,21 @@ export const api = {
   },
   adminDeleteDenomination(id) {
     return request(`/admin/denominations/${id}/delete/`, { method: 'DELETE' })
+  },
+  adminTestimonials() {
+    return request('/admin/testimonials/', { method: 'GET' })
+  },
+  adminCreateTestimonial(payload) {
+    return request('/admin/testimonials/create/', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  adminUpdateTestimonial(id, payload) {
+    return request(`/admin/testimonials/${id}/update/`, { method: 'PUT', body: JSON.stringify(payload) })
+  },
+  adminActivateTestimonial(id) {
+    return request(`/admin/testimonials/${id}/activate/`, { method: 'POST' })
+  },
+  adminDeleteTestimonial(id) {
+    return request(`/admin/testimonials/${id}/delete/`, { method: 'DELETE' })
   },
   adminPendingDenominations() {
     return request('/admin/pending-denominations/', { method: 'GET' })

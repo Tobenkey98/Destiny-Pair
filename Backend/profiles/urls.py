@@ -8,4 +8,5 @@ urlpatterns = [
     path('photos/<int:photo_id>/primary/', views.PrimaryPhotoView.as_view(), name='auth-photo-primary'),
     path('cover-photo/', views.CoverPhotoUploadView.as_view(), name='auth-cover-photo'),
     path('denominations/', views.DenominationListView.as_view(), name='auth-denominations'),
+    path('testimonials/', views.TestimonialListView.as_view(), name='auth-testimonials'),
 ]

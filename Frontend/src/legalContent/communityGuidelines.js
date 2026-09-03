@@ -1,10 +1,10 @@
-﻿// Community Guidelines content â€” updated wording v1.1
+﻿// Community Guidelines content — updated wording v1.1
 // Keep `version` and `lastUpdated` in sync with Backend/accounts/legal.py.
 
 export const communityGuidelines = {
   title: "Community & Safety Guidelines",
   description:
-    "The standards every member agrees to uphold â€” and how we keep DestinyPair a respectful, faith-guided community.",
+    "The standards every member agrees to uphold — and how we keep DestinyPair a respectful, faith-guided community.",
   lastUpdated: "2026-08-01",
   version: "1.1",
   sections: [
@@ -26,7 +26,7 @@ export const communityGuidelines = {
       id: "no-harassment",
       title: "3. No Harassment",
       body: [
-        { text: "Harassment of any kind is prohibited â€” including repeated unwanted messages, intimidation, stalking, pressure, or any conduct that makes another member feel unsafe or uncomfortable." },
+        { text: "Harassment of any kind is prohibited — including repeated unwanted messages, intimidation, stalking, pressure, or any conduct that makes another member feel unsafe or uncomfortable." },
       ],
     },
     {
@@ -40,7 +40,7 @@ export const communityGuidelines = {
       id: "no-impersonation",
       title: "5. No Impersonation",
       body: [
-        { text: "Never pretend to be someone else â€” another member, a DestinyPair staff member, or anyone else. Profiles must represent the real you, with your own photos and truthful information." },
+        { text: "Never pretend to be someone else — another member, a DestinyPair staff member, or anyone else. Profiles must represent the real you, with your own photos and truthful information." },
       ],
     },
     {
@@ -54,14 +54,14 @@ export const communityGuidelines = {
       id: "no-solicitation",
       title: "7. No Solicitation or Marketing",
       body: [
-        { text: "Do not use DestinyPair to market products, services, businesses, events or opportunities. Members join to find marriage partners â€” not to be sold to." },
+        { text: "Do not use DestinyPair to market products, services, businesses, events or opportunities. Members join to find marriage partners — not to be sold to." },
       ],
     },
     {
       id: "no-money",
       title: "8. No Requests for Money",
       body: [
-        { text: "Never ask another member for money, gifts, airtime, loans or financial help, and never accept any. If someone asks you for money, report them immediately â€” it is a scam regardless of the story given." },
+        { text: "Never ask another member for money, gifts, airtime, loans or financial help, and never accept any. If someone asks you for money, report them immediately — it is a scam regardless of the story given." },
       ],
     },
     {
@@ -75,7 +75,7 @@ export const communityGuidelines = {
       id: "meet-safely",
       title: "10. Meeting Safely",
       body: [
-        { text: "If and when you decide to meet someone in person: always meet in a public place; tell a trusted friend or family member where you are going and when you expect to return; arrange your own transport; and never meet someone you are not comfortable with. Trust your instincts â€” you can leave at any time." },
+        { text: "If and when you decide to meet someone in person: always meet in a public place; tell a trusted friend or family member where you are going and when you expect to return; arrange your own transport; and never meet someone you are not comfortable with. Trust your instincts — you can leave at any time." },
       ],
     },
     {
@@ -98,7 +98,7 @@ export const communityGuidelines = {
       id: "consequences",
       title: "13. Consequences of Violating These Guidelines",
       body: [
-        { text: "Depending on the severity of the violation, we may issue a warning, restrict account features, suspend the account temporarily, or remove the account permanently. Serious violations â€” including fraud, threats or requests for money â€” will result in immediate removal, and we will report criminal conduct to the appropriate authorities." },
+        { text: "Depending on the severity of the violation, we may issue a warning, restrict account features, suspend the account temporarily, or remove the account permanently. Serious violations — including fraud, threats or requests for money — will result in immediate removal, and we will report criminal conduct to the appropriate authorities." },
       ],
     },
     {
@@ -117,7 +117,7 @@ export const communityGuidelines = {
         { text: "Take time to get to know someone before exchanging personal contact details." },
         { text: "Video-call or speak on the phone before considering a meeting." },
         { text: "Always meet first in public places, and tell someone you trust where you are going." },
-        { text: "Report anything that makes you uncomfortable â€” you will never be blamed for reporting." },
+        { text: "Report anything that makes you uncomfortable — you will never be blamed for reporting." },
       ],
     },
     {

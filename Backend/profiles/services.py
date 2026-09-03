@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils.text import slugify
 from django.utils import timezone
 
-from .models import Denomination, PendingDenomination
+from .models import Denomination, PendingDenomination, Testimonial
 
 
 class DenominationService:
@@ -137,3 +137,34 @@ class DenominationService:
     @staticmethod
     def get_all_pending():
         return PendingDenomination.objects.all().order_by('-created_at')
+
+
+class TestimonialService:
+
+    @staticmethod
+    def get_active():
+        return Testimonial.objects.filter(
+            approved=True, is_active=True
+        ).order_by('-created_at')
+
+    @staticmethod
+    def get_by_id(testimonial_id):
+        try:
+            return Testimonial.objects.get(id=testimonial_id)
+        except Testimonial.DoesNotExist:
+            return None
+
+    @staticmethod
+    @transaction.atomic
+    def create(quote, name, location='', created_by=None, approved=True):
+        if not (quote or '').strip():
+            raise ValueError("Testimonial quote cannot be empty")
+        if not (name or '').strip():
+            raise ValueError("Testimonial name cannot be empty")
+        return Testimonial.objects.create(
+            quote=(quote or '').strip(),
+            name=(name or '').strip(),
+            location=(location or '').strip(),
+            approved=approved,
+            created_by=created_by,
+        )

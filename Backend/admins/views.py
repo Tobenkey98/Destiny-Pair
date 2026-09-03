@@ -25,12 +25,13 @@ from .serializers import (
     AdminSignupSerializer, AdminLoginSerializer,
     AuditLogSerializer, RoleAssignmentSerializer,
 )
-from profiles.models import Denomination, PendingDenomination
+from profiles.models import Denomination, PendingDenomination, Testimonial
 from profiles.serializers import (
     DenominationSerializer, DenominationCreateSerializer,
     PendingDenominationSerializer,
+    TestimonialSerializer, TestimonialCreateSerializer,
 )
-from profiles.services import DenominationService
+from profiles.services import DenominationService, TestimonialService
 
 from chatbot.views import (
     AdminChatbotTicketListView,
@@ -1432,6 +1433,78 @@ class AdminDenominationDeleteView(APIView):
         denomination.is_active = False
         denomination.save(update_fields=['is_active'])
         return Response({'message': 'Denomination deactivated'})
+
+
+class AdminTestimonialListView(ListAPIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+    serializer_class = TestimonialSerializer
+    queryset = Testimonial.objects.all().order_by('-created_at')
+
+
+class AdminTestimonialCreateView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def post(self, request):
+        serializer = TestimonialCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        testimonial = TestimonialService.create(
+            quote=serializer.validated_data['quote'],
+            name=serializer.validated_data['name'],
+            location=serializer.validated_data.get('location', ''),
+            created_by=request.user,
+            approved=serializer.validated_data.get('approved', True),
+        )
+        return Response(
+            TestimonialSerializer(testimonial).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class AdminTestimonialUpdateView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def put(self, request, testimonial_id):
+        try:
+            testimonial = Testimonial.objects.get(id=testimonial_id)
+        except Testimonial.DoesNotExist:
+            return Response({'error': 'Testimonial not found'}, status=status.HTTP_404_NOT_FOUND)
+        serializer = TestimonialCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        testimonial.quote = serializer.validated_data['quote']
+        testimonial.name = serializer.validated_data['name']
+        testimonial.location = serializer.validated_data.get('location', '')
+        testimonial.approved = serializer.validated_data.get('approved', testimonial.approved)
+        testimonial.save()
+        return Response(TestimonialSerializer(testimonial).data)
+
+
+class AdminTestimonialActivateView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def post(self, request, testimonial_id):
+        try:
+            testimonial = Testimonial.objects.get(id=testimonial_id)
+        except Testimonial.DoesNotExist:
+            return Response({'error': 'Testimonial not found'}, status=status.HTTP_404_NOT_FOUND)
+        testimonial.is_active = not testimonial.is_active
+        testimonial.save(update_fields=['is_active'])
+        return Response({
+            'message': 'Testimonial activated' if testimonial.is_active else 'Testimonial deactivated',
+            'is_active': testimonial.is_active,
+        })
+
+
+class AdminTestimonialDeleteView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def delete(self, request, testimonial_id):
+        try:
+            testimonial = Testimonial.objects.get(id=testimonial_id)
+        except Testimonial.DoesNotExist:
+            return Response({'error': 'Testimonial not found'}, status=status.HTTP_404_NOT_FOUND)
+        testimonial.delete()
+        return Response({'message': 'Testimonial deleted'})
+
 
 
 class AdminPendingDenominationListView(ListAPIView):
