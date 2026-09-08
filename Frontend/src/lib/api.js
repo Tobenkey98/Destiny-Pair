@@ -35,6 +35,27 @@ async function request(endpoint, options = {}) {
   return data;
 }
 
+// File uploads use FormData (not JSON), and edge cases (oversized file
+// rejected by nginx, gateway errors, HTML error pages) return non-JSON
+// bodies. Parse defensively so callers get a meaningful error instead of
+// "Unexpected token '<', "<!DOCTYPE "... is not valid JSON".
+async function parseJsonSafe(res) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+function uploadError(res, data, fallback) {
+  if (data?.error) return new Error(typeof data.error === 'string' ? data.error : JSON.stringify(data.error));
+  if (res.status === 413) return new Error('This photo is too large to upload. Please choose a smaller file and try again.');
+  if (res.status >= 500) return new Error('The server had a problem saving your photo. Please try again in a moment.');
+  return new Error(fallback || `Upload failed (server responded ${res.status})`);
+}
+
 export const api = {
   signup(payload) {
     return request('/auth/signup/', { method: 'POST', body: JSON.stringify(payload) });
@@ -111,8 +132,8 @@ export const api = {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      const data = await parseJsonSafe(res);
+      if (!res.ok) throw uploadError(res, data, 'Photo upload failed');
       return data;
     });
   },
@@ -155,8 +176,8 @@ export const api = {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      const data = await parseJsonSafe(res);
+      if (!res.ok) throw uploadError(res, data, 'Cover photo upload failed');
       return data;
     });
   },
@@ -206,8 +227,8 @@ export const api = {
       headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       body: formData,
     }).then(async (res) => {
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      const data = await parseJsonSafe(res);
+      if (!res.ok) throw uploadError(res, data, 'Audio upload failed');
       return data;
     });
   },
