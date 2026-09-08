@@ -22,6 +22,7 @@ function AdminSignup() {
     last_name: "",
     role: "",
     invitation_token: "",
+    bootstrap_key: "",
   });
 
   const [invitationRole, setInvitationRole] = useState(null);
@@ -65,6 +66,7 @@ function AdminSignup() {
         last_name: form.last_name,
         role: hasTokenFromUrl ? "" : "super_admin",
         invitation_token: form.invitation_token,
+        bootstrap_key: hasTokenFromUrl ? "" : form.bootstrap_key,
       });
       if (data.tokens) {
         const label = hasTokenFromUrl ? "Admin" : "Platform Administrator";
@@ -170,6 +172,13 @@ function AdminSignup() {
                 <p className="px-4 py-3 rounded-xl bg-background border border-border text-muted-foreground text-sm font-semibold">
                   Platform Administrator
                 </p>
+              </div>
+            )}
+            {!hasTokenFromUrl && (
+              <div>
+                <label className="block text-sm font-semibold mb-2">Bootstrap Key</label>
+                <input type="password" required value={form.bootstrap_key} onChange={e => set("bootstrap_key", e.target.value)} placeholder="Server bootstrap key" className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] focus:ring-2 focus:ring-[color:var(--gold-royal)]/20 outline-none" />
+                <p className="mt-1.5 text-xs text-muted-foreground">Set by the server owner as ADMIN_BOOTSTRAP_KEY. Only works while no Platform Administrator exists.</p>
               </div>
             )}
             <button type="submit" disabled={loading || success} className="w-full py-3.5 rounded-full bg-emerald text-[color:var(--gold-royal)] font-bold shadow-soft hover:shadow-glow transition disabled:opacity-50">

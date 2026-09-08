@@ -24,6 +24,12 @@ ALLOWED_HOSTS = [
     if host.strip()
 ]
 
+# Secret required to bootstrap the very first administrator account via the
+# public admin-signup endpoint (sent as `bootstrap_key`). Unset/empty means
+# bootstrapping is disabled. Only usable while no Platform Administrator
+# exists; afterwards invitations are required.
+ADMIN_BOOTSTRAP_KEY = os.environ.get('ADMIN_BOOTSTRAP_KEY', '')
+
 INSTALLED_APPS = [
     'daphne',
     'django.contrib.admin',
