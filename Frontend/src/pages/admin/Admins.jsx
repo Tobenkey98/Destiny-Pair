@@ -9,9 +9,9 @@ import { Badge } from "../../components/ui/badge";
 import { PageHeader } from "../../components/admin/page-header";
 
 const ROLE_OPTIONS = [
-  { value: "operations_admin", label: "Operations Admin" },
-  { value: "moderator", label: "Moderator" },
-  { value: "counsellor", label: "Counsellor" },
+  { value: "operations_admin", label: "Operation Manager" },
+  { value: "moderator", label: "Community Manager" },
+  { value: "counsellor", label: "Support and Counselling Manager" },
 ];
 
 export default function AdminAdmins() {

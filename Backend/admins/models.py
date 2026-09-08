@@ -15,10 +15,10 @@ def default_invitation_expiry():
 
 class AdminProfile(models.Model):
     ROLE_CHOICES = [
-        ('super_admin', 'Super Admin'),
-        ('operations_admin', 'Operations Admin'),
-        ('moderator', 'Moderator'),
-        ('counsellor', 'Counsellor'),
+        ('super_admin', 'Platform Administrator'),
+        ('operations_admin', 'Operation Manager'),
+        ('moderator', 'Community Manager'),
+        ('counsellor', 'Support and Counselling Manager'),
     ]
 
     DEPARTMENT_CHOICES = [
@@ -74,9 +74,9 @@ class AdminInvitation(models.Model):
     """
 
     ROLE_CHOICES = [
-        ('operations_admin', 'Operations Admin'),
-        ('moderator', 'Moderator'),
-        ('counsellor', 'Counsellor'),
+        ('operations_admin', 'Operation Manager'),
+        ('moderator', 'Community Manager'),
+        ('counsellor', 'Support and Counselling Manager'),
     ]
 
     DEPARTMENT_CHOICES = AdminProfile.DEPARTMENT_CHOICES

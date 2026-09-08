@@ -260,7 +260,7 @@ function MatchesTable({ matches }) {
 
 const roleConfig = {
   super_admin: {
-    label: "Super Admin",
+    label: "Platform Administrator",
     icon: Shield,
     badgeClass: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
     quickActions: [
@@ -271,7 +271,7 @@ const roleConfig = {
     ],
   },
   operations_admin: {
-    label: "Operations Admin",
+    label: "Operation Manager",
     icon: TrendingUp,
     badgeClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     quickActions: [
@@ -281,7 +281,7 @@ const roleConfig = {
     ],
   },
   moderator: {
-    label: "Moderator",
+    label: "Community Manager",
     icon: Shield,
     badgeClass: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
     quickActions: [
@@ -291,7 +291,7 @@ const roleConfig = {
     ],
   },
   counsellor: {
-    label: "Counsellor",
+    label: "Support and Counselling Manager",
     icon: Heart,
     badgeClass: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
     quickActions: [

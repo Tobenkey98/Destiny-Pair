@@ -5,10 +5,10 @@ import { Shield, Eye, EyeOff, CheckCircle } from "lucide-react";
 import { api } from "../../lib/api";
 
 const ADMIN_ROLES = [
-  { value: "super_admin", label: "Super Admin" },
-  { value: "operations_admin", label: "Operations Admin" },
-  { value: "moderator", label: "Moderator" },
-  { value: "counsellor", label: "Counsellor" },
+  { value: "super_admin", label: "Platform Administrator" },
+  { value: "operations_admin", label: "Operation Manager" },
+  { value: "moderator", label: "Community Manager" },
+  { value: "counsellor", label: "Support and Counselling Manager" },
 ];
 
 function AdminSignup() {
@@ -67,11 +67,11 @@ function AdminSignup() {
         invitation_token: form.invitation_token,
       });
       if (data.tokens) {
-        const label = hasTokenFromUrl ? "Admin" : "Super Admin";
+        const label = hasTokenFromUrl ? "Admin" : "Platform Administrator";
         setSuccess(`${label} account created. Redirecting...`);
         setTimeout(() => navigate("/admin"), 1500);
       } else if (data.status === "pending") {
-        setSuccess(data.message || "Account created. Awaiting Super Admin approval.");
+        setSuccess(data.message || "Account created. Awaiting Platform Administrator approval.");
       }
     } catch (err) {
       setError(err.data?.error || err.message);
@@ -168,7 +168,7 @@ function AdminSignup() {
               <div>
                 <label className="block text-sm font-semibold mb-2">Role</label>
                 <p className="px-4 py-3 rounded-xl bg-background border border-border text-muted-foreground text-sm font-semibold">
-                  Super Admin
+                  Platform Administrator
                 </p>
               </div>
             )}

@@ -41,7 +41,7 @@ class AdminActivityMiddleware:
             if getattr(view_func, 'is_super_admin_only', False):
                 from django.http import JsonResponse
                 return JsonResponse(
-                    {'error': 'Super Admin access required.'},
+                    {'error': 'Platform Administrator access required.'},
                     status=403,
                 )
 

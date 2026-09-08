@@ -11,10 +11,10 @@ const ROLE_HIERARCHY = {
 };
 
 const ROLE_DISPLAY = {
-  super_admin: 'Super Admin',
-  operations_admin: 'Operations Admin',
-  moderator: 'Moderator',
-  counsellor: 'Counsellor',
+  super_admin: 'Platform Administrator',
+  operations_admin: 'Operation Manager',
+  moderator: 'Community Manager',
+  counsellor: 'Support and Counselling Manager',
 };
 
 const MODULE_ACCESS = {

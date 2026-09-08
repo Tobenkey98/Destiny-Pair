@@ -820,7 +820,7 @@ class AdminSignupView(APIView):
             )
             return Response(
                 {'status': 'pending',
-                 'message': 'Account created. A Super Admin must approve your access before you can sign in.'},
+                 'message': 'Account created. A Platform Administrator must approve your access before you can sign in.'},
                 status=status.HTTP_201_CREATED,
             )
 
@@ -887,7 +887,7 @@ class AdminLoginView(APIView):
         profile = user.admin_profile
         if not profile.is_approved or not profile.is_active:
             return Response(
-                {'error': 'Your administrator account is pending approval from the Super Admin.'},
+                {'error': 'Your administrator account is pending approval from the Platform Administrator.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
         if not user.is_active:
@@ -1354,7 +1354,7 @@ class AdminBlockUnblockView(APIView):
             return Response({'error': 'Admin not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         if profile.role == 'super_admin':
-            return Response({'error': 'Cannot block the Super Admin.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'error': 'Cannot block the Platform Administrator.'}, status=status.HTTP_403_FORBIDDEN)
 
         profile.is_active = not profile.is_active
         profile.save(update_fields=['is_active'])

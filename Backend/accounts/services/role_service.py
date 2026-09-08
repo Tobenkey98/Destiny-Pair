@@ -3,10 +3,10 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 
 ROLE_GROUP_MAP = {
-    'super_admin': 'Super Admin',
-    'operations_admin': 'Operations Admin',
-    'moderator': 'Moderator',
-    'counsellor': 'Counsellor',
+    'super_admin': 'Platform Administrator',
+    'operations_admin': 'Operation Manager',
+    'moderator': 'Community Manager',
+    'counsellor': 'Support and Counselling Manager',
 }
 
 

@@ -21,7 +21,7 @@ def require_super_admin(view_func):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required.'}, status=401)
         if not RoleService.user_has_role(request.user, 'super_admin'):
-            return JsonResponse({'error': 'Super Admin access required.'}, status=403)
+            return JsonResponse({'error': 'Platform Administrator access required.'}, status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -32,7 +32,7 @@ def require_operations_admin(view_func):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required.'}, status=401)
         if not RoleService.user_has_role(request.user, 'operations_admin'):
-            return JsonResponse({'error': 'Operations Admin access required.'}, status=403)
+            return JsonResponse({'error': 'Operation Manager access required.'}, status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -43,7 +43,7 @@ def require_moderator(view_func):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required.'}, status=401)
         if not RoleService.user_has_role(request.user, 'moderator'):
-            return JsonResponse({'error': 'Moderator access required.'}, status=403)
+            return JsonResponse({'error': 'Community Manager access required.'}, status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 
@@ -54,7 +54,7 @@ def require_counsellor(view_func):
         if not request.user.is_authenticated:
             return JsonResponse({'error': 'Authentication required.'}, status=401)
         if not RoleService.user_has_role(request.user, 'counsellor'):
-            return JsonResponse({'error': 'Counsellor access required.'}, status=403)
+            return JsonResponse({'error': 'Support and Counselling Manager access required.'}, status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped_view
 

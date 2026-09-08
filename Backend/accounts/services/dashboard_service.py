@@ -139,7 +139,7 @@ class DashboardService:
 
         return {
             'role': 'super_admin',
-            'title': 'Super Admin Dashboard',
+            'title': 'Platform Administrator Dashboard',
             'counts': {
                 'matches': total_matches,
                 'moderation': pending_photos + total_reports,
