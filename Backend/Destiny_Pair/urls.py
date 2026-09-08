@@ -4,7 +4,10 @@ from django.contrib import admin
 from django.urls import path, include
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # NOTE: the React admin panel owns /admin/* (login, dashboard, ...).
+    # Django's built-in admin lives at /django-admin/ so nginx can serve the
+    # SPA for /admin/* while proxying /api/* (and /django-admin/*) to Django.
+    path('django-admin/', admin.site.urls),
     path('', include('Destiny.urls')),
     path('api/', include('matching.api.urls')),
     path('api/chatbot/', include('chatbot.urls')),
