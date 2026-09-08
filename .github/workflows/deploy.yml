@@ -31,6 +31,14 @@ jobs:
 
             # Build the static frontend files
             cd Frontend
+            
+            # --- CREATE FRONTEND .ENV DYNAMICALLY ---
+            cat > .env <<EOF
+            VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
+            VITE_FACEBOOK_APP_ID=${{ secrets.VITE_FACEBOOK_APP_ID }}
+            EOF
+            # ----------------------------------------
+            
             npm install
             npm run build
 
