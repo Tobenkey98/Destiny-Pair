@@ -2,8 +2,9 @@ import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Mosaic } from "react-loading-indicators";
 import {
-  Users as UsersIcon, Search, MoreHorizontal,
-  Mail, Check, X, Shield, Circle,
+  Search,
+  Check, X, Circle,
+  Ban, Trash2, Undo2, Download,
 } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { PageHeader } from "../../components/admin/page-header";
@@ -46,6 +47,69 @@ export default function AdminUsers() {
     );
   }) : [];
 
+  const isBlocked = (u) => !u.is_active || u.is_banned;
+
+  async function handleBlock(u) {
+    const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+    if (!confirm(`Block ${name}? They will be signed out and unable to use their account.`)) return;
+    try {
+      await api.adminSuspendUser(u.id);
+      fetchUsers();
+    } catch (err) {
+      alert(err.data?.error || err.message);
+    }
+  }
+
+  async function handleUnblock(u) {
+    const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+    if (!confirm(`Unblock ${name}? Their account will be active again.`)) return;
+    try {
+      await api.adminReinstateUser(u.id);
+      fetchUsers();
+    } catch (err) {
+      alert(err.data?.error || err.message);
+    }
+  }
+
+  async function handleDelete(u) {
+    const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
+    if (!confirm(`Delete ${name} permanently? All of their data (photos, matches, messages, payments history) will be removed. This cannot be undone.`)) return;
+    try {
+      await api.adminDeleteUser(u.id);
+      fetchUsers();
+    } catch (err) {
+      alert(err.data?.error || err.message);
+    }
+  }
+
+  function handleExport() {
+    const headers = ["Name", "Email", "Phone", "Gender", "City/State", "Status", "Verified", "Date Joined", "Last Login"];
+    const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const statusOf = (u) => (u.is_banned ? "Banned" : u.is_active ? "Active" : "Inactive");
+    const rows = filtered.map((u) => [
+      `${u.first_name || ""} ${u.last_name || ""}`.trim(),
+      u.email || "",
+      u.phone || "",
+      u.gender || "",
+      u.city_state || "",
+      statusOf(u),
+      u.is_verified ? "Yes" : "No",
+      u.date_joined ? new Date(u.date_joined).toLocaleString() : "",
+      u.last_login ? new Date(u.last_login).toLocaleString() : "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\r\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+    a.href = url;
+    a.download = `destinypair-users-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -72,8 +136,8 @@ export default function AdminUsers() {
           />
         </div>
         {!isModerator && (
-          <Button variant="outline" size="sm" disabled>
-            <UsersIcon className="h-4 w-4 mr-2" /> Export
+          <Button variant="outline" size="sm" onClick={handleExport} disabled={filtered.length === 0}>
+            <Download className="h-4 w-4 mr-2" /> Export
           </Button>
         )}
       </div>
@@ -140,9 +204,22 @@ export default function AdminUsers() {
                       {u.last_login ? new Date(u.last_login).toLocaleString() : '—'}
                     </td>
                     <td className="px-4 py-3">
-                      <button className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center">
-                        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        {isBlocked(u) ? (
+                          <button onClick={() => handleUnblock(u)} className="h-8 w-8 rounded-lg hover:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 transition" title="Unblock user">
+                            <Undo2 className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button onClick={() => handleBlock(u)} className="h-8 w-8 rounded-lg hover:bg-amber-500/10 flex items-center justify-center text-amber-600 dark:text-amber-400 transition" title="Block user">
+                            <Ban className="h-4 w-4" />
+                          </button>
+                        )}
+                        {!isModerator && (
+                          <button onClick={() => handleDelete(u)} className="h-8 w-8 rounded-lg hover:bg-red-500/10 flex items-center justify-center text-red-500 transition" title="Delete user permanently">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </motion.tr>
                 ))}

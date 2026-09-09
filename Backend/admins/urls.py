@@ -8,6 +8,7 @@ urlpatterns = [
     path('users/<int:user_id>/suspend/', views.AdminUserSuspendView.as_view(), name='admin-user-suspend'),
     path('users/<int:user_id>/ban/', views.AdminUserBanView.as_view(), name='admin-user-ban'),
     path('users/<int:user_id>/reinstate/', views.AdminUserReinstateView.as_view(), name='admin-user-reinstate'),
+    path('users/<int:user_id>/delete/', views.AdminUserDeleteView.as_view(), name='admin-user-delete'),
     path('photos/approve/', views.AdminPhotoApprovalView.as_view(), name='admin-photo-approve'),
     path('moderation/', views.AdminModerationView.as_view(), name='admin-moderation'),
     path('matches/', views.AdminMatchListView.as_view(), name='admin-match-list'),

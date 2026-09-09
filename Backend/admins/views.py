@@ -195,6 +195,37 @@ class AdminUserReinstateView(APIView):
         return Response({'status': 'User reinstated successfully.'})
 
 
+class AdminUserDeleteView(APIView):
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def delete(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if hasattr(user, 'admin_profile'):
+            return Response(
+                {'error': 'Cannot delete an administrator.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        email = user.email
+        user.delete()
+
+        AuditService.log(
+            actor=request.user,
+            action="Deleted User",
+            action_type="delete",
+            target_model="User",
+            target_id=str(user_id),
+            target_repr=email,
+            request=request,
+        )
+
+        return Response({'status': 'User deleted successfully.'})
+
+
 class AdminPhotoApprovalView(APIView):
     permission_classes = [IsSuperAdminOrModerator]
     parser_classes = [JSONParser, MultiPartParser, FormParser]

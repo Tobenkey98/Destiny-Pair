@@ -259,6 +259,9 @@ export const api = {
   adminReinstateUser(userId) {
     return request(`/admin/users/${userId}/reinstate/`, { method: 'POST' });
   },
+  adminDeleteUser(userId) {
+    return request(`/admin/users/${userId}/delete/`, { method: 'DELETE' });
+  },
   adminApprovePhoto(photoId, action) {
     return request('/admin/photos/approve/', { method: 'POST', body: JSON.stringify({ photo_id: photoId, action }) });
   },
