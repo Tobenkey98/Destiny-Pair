@@ -69,6 +69,8 @@ const AdminSettings = lazyWithRetry(() => import("./pages/admin/Settings"));
 const AdminDenominations = lazyWithRetry(() => import("./pages/admin/Denominations"));
 const AdminPendingDenominations = lazyWithRetry(() => import("./pages/admin/PendingDenominations"));
 const AdminChatbot = lazyWithRetry(() => import("./pages/admin/Chatbot"));
+const AdminNotFound = lazyWithRetry(() => import("./pages/admin/NotFound"));
+const AdminRoles = lazyWithRetry(() => import("./pages/admin/Roles"));
 const AdminTestimonials = lazyWithRetry(() => import("./pages/admin/Testimonials"));
 
 function lazyWithRetry(factory) {
@@ -195,6 +197,8 @@ function App() {
                   <Route path="pending-denominations" element={<AdminPendingDenominations />} />
                   <Route path="testimonials" element={<AdminTestimonials />} />
                   <Route path="bot-reports" element={<AdminChatbot />} />
+                  <Route path="roles" element={<AdminRoles />} />
+                  <Route path="*" element={<AdminNotFound />} />
                 </Route>
 <Route path="/*" element={<MainLayout />} />
               </Routes>
