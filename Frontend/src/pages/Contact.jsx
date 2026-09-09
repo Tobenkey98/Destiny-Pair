@@ -1,10 +1,21 @@
 ﻿import { motion } from "framer-motion";
 import { Mail, Phone, MessageCircle, MapPin, Clock, Send } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHero, Reveal } from "../components/Section";
+
+const TOPICS = [
+  { value: "general", label: "General Enquiry" },
+  { value: "review", label: "Review" },
+  { value: "complaint", label: "Complaint" },
+  { value: "testimony", label: "Testimony" },
+];
 
 function Contact() {
   const [sent, setSent] = useState(false);
+  const [searchParams] = useSearchParams();
+  const initialTopic = TOPICS.some(t => t.value === searchParams.get("topic")) ? searchParams.get("topic") : "general";
+  const [topic, setTopic] = useState(initialTopic);
 
   return (
     <>
@@ -14,7 +25,7 @@ function Contact() {
         <div className="max-w-7xl mx-auto px-6 grid lg:grid-cols-5 gap-8">
           <div className="lg:col-span-2 space-y-4">
             {[
-              { icon: Mail, title: "Email", body: "pureintentions.globaltech@gmail.com", grad: "bg-emerald" },
+              { icon: Mail, title: "Email", body: "support@destinypair.net", grad: "bg-emerald" },
               { icon: Phone, title: "Call", body: "+234 806 430 3067", grad: "bg-gold" },
               { icon: MessageCircle, title: "WhatsApp", body: "+234 806 430 3067", grad: "bg-luxury" },
               { icon: MapPin, title: "Office", body: "Alakuko, Lagos", grad: "bg-emerald" },
@@ -40,7 +51,15 @@ function Contact() {
                 <form onSubmit={e => { e.preventDefault(); setSent(true); }} className="mt-8 grid sm:grid-cols-2 gap-5">
                   <Field label="Full name" type="text" />
                   <Field label="Email" type="email" />
-                  <div className="sm:col-span-2"><Field label="Subject" type="text" /></div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2">Topic</label>
+                    <select value={topic} onChange={e => setTopic(e.target.value)} className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] focus:ring-2 focus:ring-[color:var(--gold-royal)]/20 outline-none">
+                      {TOPICS.map(t => (
+                        <option key={t.value} value={t.value}>{t.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div><Field label="Subject" type="text" /></div>
                   <div className="sm:col-span-2">
                     <label className="block text-sm font-semibold mb-2">Message</label>
                     <textarea rows={5} required className="w-full px-4 py-3 rounded-xl bg-background border border-border focus:border-[color:var(--gold-royal)] focus:ring-2 focus:ring-[color:var(--gold-royal)]/20 outline-none" />

@@ -38,6 +38,15 @@ const COLUMNS = [
       ["/refund-policy", "Refund & Cancellation Policy"],
     ],
   },
+  {
+    title: "Share With Us",
+    links: [
+      ["/contact?topic=testimony", "Share a Testimony"],
+      ["/contact?topic=complaint", "Make a Complaint"],
+      ["/contact?topic=review", "Leave a Review"],
+      ["mailto:support@destinypair.net", "Email Us Directly"],
+    ],
+  },
 ];
 
 function FooterColumn({ column, mobile }) {
@@ -50,9 +59,15 @@ function FooterColumn({ column, mobile }) {
         <ul className="space-y-1.5 text-xs text-[color:var(--cream-soft)]/80">
           {column.links.map(([to, label]) => (
             <li key={to + label}>
-              <Link to={to} className="hover:text-[color:var(--gold-royal)] transition">
-                {label}
-              </Link>
+              {to.startsWith("mailto:") ? (
+                <a href={to} className="hover:text-[color:var(--gold-royal)] transition">
+                  {label}
+                </a>
+              ) : (
+                <Link to={to} className="hover:text-[color:var(--gold-royal)] transition">
+                  {label}
+                </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -84,9 +99,15 @@ function FooterColumn({ column, mobile }) {
             <ul className="pb-3 space-y-1.5 text-xs text-[color:var(--cream-soft)]/80">
               {column.links.map(([to, label]) => (
                 <li key={to + label}>
-                  <Link to={to} className="hover:text-[color:var(--gold-royal)] transition">
-                    {label}
-                  </Link>
+                  {to.startsWith("mailto:") ? (
+                    <a href={to} className="hover:text-[color:var(--gold-royal)] transition">
+                      {label}
+                    </a>
+                  ) : (
+                    <Link to={to} className="hover:text-[color:var(--gold-royal)] transition">
+                      {label}
+                    </Link>
+                  )}
                 </li>
               ))}
             </ul>
@@ -107,7 +128,7 @@ export function Footer() {
         <div className="absolute inset-0 pattern-dots opacity-30" />
         <div className="relative max-w-7xl mx-auto px-6 lg:px-8 pt-10 pb-6">
           {/* Desktop columns */}
-          <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-5 gap-8 md:gap-6">
+          <div className="hidden md:grid md:grid-cols-3 lg:grid-cols-6 gap-8 md:gap-6">
             <div>
               <div className="flex items-center gap-3 mb-3">
                 <div className="bg-gold rounded-xl p-2 shadow-glow">
@@ -146,7 +167,7 @@ export function Footer() {
 
           {/* Contact strip */}
           <div className="mt-8 grid sm:grid-cols-3 gap-3 text-xs text-[color:var(--cream-soft)]/80">
-            <div className="flex gap-2"><Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> pureintentions.globaltech@gmail.com</div>
+            <div className="flex gap-2"><Mail className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> <a href="mailto:support@destinypair.net" className="hover:text-[color:var(--gold-royal)] transition">support@destinypair.net</a></div>
             <div className="flex gap-2"><Phone className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> +234 806 430 3067</div>
             <div className="flex gap-2"><MapPin className="h-3.5 w-3.5 mt-0.5 shrink-0 text-[color:var(--gold-royal)]" /> Alakuko, Lagos</div>
           </div>
