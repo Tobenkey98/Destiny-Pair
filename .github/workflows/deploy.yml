@@ -42,9 +42,12 @@ jobs:
             npm install
             npm run build
 
-            # Apply any database changes and restart Django
+            # Apply any database changes and restart Django.
+            # Daphne serves websockets (live chat/calls); restart it too once
+            # the daphne systemd service exists — until then this warns only.
             cd ../Backend
             source ../venv/bin/activate
             python manage.py migrate
             sudo systemctl restart gunicorn
+            sudo systemctl restart daphne || echo "WARNING: daphne service not installed yet (live chat needs it)"
             echo "Deploy OK: $(git rev-parse HEAD)"

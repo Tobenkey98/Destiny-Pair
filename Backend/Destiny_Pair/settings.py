@@ -95,8 +95,17 @@ WSGI_APPLICATION = 'Destiny_Pair.wsgi.application'
 ASGI_APPLICATION = 'Destiny_Pair.asgi.application'
 
 CHANNEL_LAYERS = {
+    # Redis-backed so chat/presence broadcasts reach every server process.
+    # Gunicorn (WSGI) cannot serve websockets at all — Daphne does — and the
+    # in-memory layer cannot share messages between processes, so Redis is
+    # required wherever more than one process serves traffic (i.e. production).
+    # This matches the existing Redis assumptions for cache (db 1) and Celery
+    # (db 0); override with CHANNEL_REDIS_URL if Redis lives elsewhere.
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [os.environ.get('CHANNEL_REDIS_URL', 'redis://127.0.0.1:6379/2')],
+        },
     },
 }
 
