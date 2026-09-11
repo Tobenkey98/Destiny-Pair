@@ -354,7 +354,15 @@ export default function Chat() {
   }, []);
 
   useEffect(() => {
-    if (urlConvId) setActiveConvId(urlConvId);
+    if (urlConvId) {
+      setActiveConvId(urlConvId);
+    } else {
+      // Arrived without a conversation id (e.g. a connection with no
+      // conversation yet): clear any previously open chat instead of
+      // leaving a stale conversation on screen.
+      setActiveConvId(null);
+      setMessages([]);
+    }
   }, [urlConvId]);
 
   useEffect(() => {

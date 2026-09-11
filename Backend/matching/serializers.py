@@ -24,5 +24,11 @@ class MatchSerializer(serializers.ModelSerializer):
         return obj.to_user.first_name or obj.to_user.email
 
     def get_conversation_id(self, obj):
-        conv = Conversation.objects.filter(participants=obj.from_user).filter(participants=obj.to_user).first()
+        conv = (
+            Conversation.objects
+            .filter(participants=obj.from_user)
+            .filter(participants=obj.to_user)
+            .order_by('-updated_at', '-id')
+            .first()
+        )
         return conv.id if conv else None

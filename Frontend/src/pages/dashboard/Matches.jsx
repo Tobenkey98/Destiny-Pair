@@ -38,7 +38,7 @@ function ConnectionNode({ conn, index, userId }) {
       whileHover={{ y: -6, scale: 1.02 }}
       className="group relative"
     >
-      <Link to={`/dashboard/chat/${conn.conversation_id || ''}`}>
+      <Link to={conn.conversation_id ? `/dashboard/chat/${conn.conversation_id}` : "/dashboard/chat"}>
         <div className="relative p-5 rounded-3xl bg-background/80 backdrop-blur-xl border border-border/60 shadow-soft hover:shadow-luxe transition-all overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald/3 via-transparent to-gold/3 opacity-0 group-hover:opacity-100 transition" />
 
@@ -67,7 +67,7 @@ function ConnectionNode({ conn, index, userId }) {
             <div className="flex items-center gap-1">
               <motion.button
                 whileTap={{ scale: 0.9 }}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/dashboard/chat/${conn.conversation_id || ''}`); }}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(conn.conversation_id ? `/dashboard/chat/${conn.conversation_id}` : "/dashboard/chat"); }}
                 className="p-2 rounded-full bg-emerald/10 text-emerald-deep dark:text-gold-royal hover:bg-emerald/20 transition"
               >
                 <MessageCircle className="h-4 w-4" />
