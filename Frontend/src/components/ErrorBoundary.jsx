@@ -12,6 +12,19 @@ export class ErrorBoundary extends Component {
 
   componentDidCatch(error, info) {
     console.error("App crashed:", error, info);
+    // Stale-cache self-heal: after a deploy, a cached index.html can point at
+    // JS chunks that no longer exist ("Failed to fetch dynamically imported
+    // module"). A single full reload fetches the fresh index.html and recovers
+    // silently. The session flag prevents reload loops; it is cleared on every
+    // successful boot (main.jsx) and by the manual recovery button below.
+    const msg = error?.message || "";
+    const isChunkError =
+      msg.includes("Failed to fetch dynamically imported module") ||
+      msg.includes("Importing a module script failed");
+    if (isChunkError && !sessionStorage.getItem("dp_chunk_reloaded")) {
+      sessionStorage.setItem("dp_chunk_reloaded", "1");
+      window.location.reload();
+    }
   }
 
   render() {
@@ -34,6 +47,7 @@ export class ErrorBoundary extends Component {
                 localStorage.removeItem("refresh_token");
                 sessionStorage.removeItem("access_token");
                 sessionStorage.removeItem("refresh_token");
+                sessionStorage.removeItem("dp_chunk_reloaded");
                 window.location.href = "/";
               }}
             >
