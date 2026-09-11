@@ -9,8 +9,10 @@ import { FourSquare } from "react-loading-indicators";
 import { api } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 
-function ConnectionNode({ conn, index, userId }) {
+function ConnectionNode({ conn, index, userId, onRespond }) {
   const isFromMe = String(conn.from_user) === String(userId);
+  const isIncomingRequest = !isFromMe && conn.status === "liked";
+  const hasChat = !!conn.conversation_id;
   const otherName = isFromMe
     ? (conn.to_user_name || conn.to_user)
     : (conn.from_user_name || conn.from_user);
@@ -20,7 +22,8 @@ function ConnectionNode({ conn, index, userId }) {
   const getStatusLabel = () => {
     if (conn.status === "matched") return "Connected";
     if (conn.status === "pending") return "Pending response";
-    if (isFromMe) return "You liked them";
+    if (isIncomingRequest) return "Wants to connect with you";
+    if (isFromMe) return "Like request sent";
     return "Liked you";
   };
 
@@ -65,13 +68,34 @@ function ConnectionNode({ conn, index, userId }) {
             </div>
 
             <div className="flex items-center gap-1">
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(conn.conversation_id ? `/dashboard/chat/${conn.conversation_id}` : "/dashboard/chat"); }}
-                className="p-2 rounded-full bg-emerald/10 text-emerald-deep dark:text-gold-royal hover:bg-emerald/20 transition"
-              >
-                <MessageCircle className="h-4 w-4" />
-              </motion.button>
+              {isIncomingRequest ? (
+                <>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRespond(conn, "matched"); }}
+                    className="px-3 py-1.5 rounded-full bg-emerald text-white text-xs font-semibold hover:bg-emerald/90 transition"
+                  >
+                    Accept
+                  </motion.button>
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); onRespond(conn, "rejected"); }}
+                    className="px-3 py-1.5 rounded-full bg-foreground/5 text-xs font-semibold text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition"
+                  >
+                    Reject
+                  </motion.button>
+                </>
+              ) : (
+                hasChat && (
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/dashboard/chat/${conn.conversation_id}`); }}
+                    className="p-2 rounded-full bg-emerald/10 text-emerald-deep dark:text-gold-royal hover:bg-emerald/20 transition"
+                  >
+                    <MessageCircle className="h-4 w-4" />
+                  </motion.button>
+                )
+              )}
             </div>
           </div>
         </div>
@@ -82,16 +106,33 @@ function ConnectionNode({ conn, index, userId }) {
 
 export default function Matches() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState("all");
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  function fetchConnections() {
     api.getMatches()
       .then(setConnections)
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { fetchConnections(); }, []);
+
+  async function handleRespond(conn, status) {
+    const name = conn.from_user_name || "this user";
+    if (status === "rejected" && !confirm(`Reject the like request from ${name}?`)) return;
+    try {
+      const updated = await api.updateMatch(conn.id, { status });
+      fetchConnections();
+      if (status === "matched" && updated?.conversation_id) {
+        navigate(`/dashboard/chat/${updated.conversation_id}`);
+      }
+    } catch (err) {
+      alert(err.data?.error || err.message);
+    }
+  }
 
   const filtered = tab === "all" ? connections : connections.filter((c) => c.status === tab);
 
@@ -141,7 +182,7 @@ export default function Matches() {
       ) : (
         <motion.div layout className="space-y-3">
           {filtered.map((conn, i) => (
-            <ConnectionNode key={conn.id} conn={conn} index={i} userId={user?.id} />
+            <ConnectionNode key={conn.id} conn={conn} index={i} userId={user?.id} onRespond={handleRespond} />
           ))}
           {filtered.length === 0 && (
             <div className="text-center py-16">

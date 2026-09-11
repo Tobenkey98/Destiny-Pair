@@ -13,8 +13,11 @@ def get_qualified_candidates(user):
     Returns a queryset of users who pass all hard filters
     for the given user. Excludes the user themself.
     """
+    # NOTE: verification is intentionally NOT a hard filter. New signups must
+    # appear on Discover immediately; the verified badge (and the optional
+    # "verified only" toggle in the app) lets members decide who to trust.
+    # Only deactivated or banned accounts are hidden here.
     qs = User.objects.filter(
-        is_verified=True,
         is_active=True,
         is_banned=False,
     ).exclude(id=user.id)

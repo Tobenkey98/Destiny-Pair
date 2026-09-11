@@ -1,4 +1,4 @@
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import { Mosaic } from "react-loading-indicators";
 import {
@@ -21,6 +21,10 @@ export default function AdminUsers() {
   const [search, setSearch] = useState("");
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [detailUser, setDetailUser] = useState(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState("");
   const isModerator = hasRole('moderator');
 
   function fetchUsers() {
@@ -48,6 +52,17 @@ export default function AdminUsers() {
   }) : [];
 
   const isBlocked = (u) => !u.is_active || u.is_banned;
+
+  function openDetail(u) {
+    setDetailUser(null);
+    setDetailError("");
+    setDetailOpen(true);
+    setDetailLoading(true);
+    api.adminUserDetail(u.id)
+      .then(setDetailUser)
+      .catch((err) => setDetailError(err.data?.error || err.message))
+      .finally(() => setDetailLoading(false));
+  }
 
   async function handleBlock(u) {
     const name = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email;
@@ -167,7 +182,8 @@ export default function AdminUsers() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: i * 0.02 }}
-                    className="border-b last:border-0 hover:bg-muted/30 transition"
+                    onClick={() => openDetail(u)}
+                    className="border-b last:border-0 hover:bg-muted/30 transition cursor-pointer"
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
@@ -203,7 +219,7 @@ export default function AdminUsers() {
                     <td className="px-4 py-3 text-sm text-muted-foreground">
                       {u.last_login ? new Date(u.last_login).toLocaleString() : '—'}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <div className="flex items-center justify-end gap-1">
                         {isBlocked(u) ? (
                           <button onClick={() => handleUnblock(u)} className="h-8 w-8 rounded-lg hover:bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 transition" title="Unblock user">
@@ -228,6 +244,106 @@ export default function AdminUsers() {
           </div>
         </CardContent>
       </Card>
+
+      <AnimatePresence>
+        {detailOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4"
+            onClick={() => setDetailOpen(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl p-6"
+            >
+              <div className="flex items-start justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarFallback className="bg-primary/10 text-primary">
+                      {detailUser
+                        ? (((detailUser.first_name?.[0] || "") + (detailUser.last_name?.[0] || "")).toUpperCase() || "U")
+                        : "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      {detailUser ? `${detailUser.first_name || ""} ${detailUser.last_name || ""}`.trim() || "User" : "User details"}
+                    </h2>
+                    <p className="text-xs text-muted-foreground">{detailUser?.email || "Loading..."}</p>
+                  </div>
+                </div>
+                <button onClick={() => setDetailOpen(false)} className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {detailLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <Mosaic color="var(--admin-loader)" size="medium" text="" textColor="" />
+                </div>
+              )}
+
+              {detailError && (
+                <div className="p-4 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-sm">{detailError}</div>
+              )}
+
+              {detailUser && !detailLoading && (
+                <div className="space-y-6">
+                  <DetailSection title="Account">
+                    <DetailRow label="Status" value={detailUser.is_banned ? "Banned" : detailUser.is_active ? "Active" : "Inactive"} />
+                    <DetailRow label="Verified" value={detailUser.is_verified ? "Yes" : "No"} />
+                    <DetailRow label="Profile completed" value={detailUser.is_profile_completed ? "Yes" : "No"} />
+                    <DetailRow label="Joined" value={detailUser.date_joined ? new Date(detailUser.date_joined).toLocaleString() : "—"} />
+                    <DetailRow label="Last login" value={detailUser.last_login ? new Date(detailUser.last_login).toLocaleString() : "—"} />
+                  </DetailSection>
+                  <DetailSection title="Contact & Background">
+                    <DetailRow label="Phone" value={detailUser.phone || "—"} />
+                    <DetailRow label="Gender" value={detailUser.gender || "—"} />
+                    <DetailRow label="Date of birth" value={detailUser.date_of_birth || "—"} />
+                    <DetailRow label="City/State" value={detailUser.city_state || "—"} />
+                    <DetailRow label="State of residence" value={detailUser.state_of_residence || "—"} />
+                    <DetailRow label="State of origin" value={detailUser.state_of_origin || "—"} />
+                    <DetailRow label="Ethnic group" value={detailUser.ethnic_group || "—"} />
+                    <DetailRow label="Marital status" value={detailUser.marital_status || "—"} />
+                  </DetailSection>
+                  <DetailSection title="Faith & Life">
+                    <DetailRow label="Faith" value={detailUser.faith || "—"} />
+                    <DetailRow label="Place of worship" value={detailUser.place_of_worship || "—"} />
+                    <DetailRow label="Qualification" value={detailUser.highest_qualification || "—"} />
+                    <DetailRow label="Institution" value={detailUser.institution || "—"} />
+                    <DetailRow label="Profession" value={detailUser.profession || "—"} />
+                    <DetailRow label="About" value={detailUser.about_self || detailUser.short_bio || "—"} full />
+                    <DetailRow label="Seeking" value={detailUser.seeking_description || "—"} full />
+                  </DetailSection>
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function DetailSection({ title, children }) {
+  return (
+    <div>
+      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">{title}</h3>
+      <div className="grid sm:grid-cols-2 gap-x-6 gap-y-2.5 rounded-xl border bg-muted/20 p-4">{children}</div>
+    </div>
+  );
+}
+
+function DetailRow({ label, value, full }) {
+  return (
+    <div className={full ? "sm:col-span-2" : ""}>
+      <div className="text-[11px] text-muted-foreground">{label}</div>
+      <div className="text-sm font-medium break-words">{value}</div>
     </div>
   );
 }

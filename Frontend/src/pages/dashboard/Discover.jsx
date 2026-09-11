@@ -391,7 +391,7 @@ export default function Discover() {
         )}
         {likeFeedback && !likeConvId && (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-full bg-emerald text-white text-sm font-semibold shadow-lg">
-            <Heart className="h-4 w-4 inline mr-1.5" fill="currentColor" /> Liked!
+            <Heart className="h-4 w-4 inline mr-1.5" fill="currentColor" /> Like request sent!
           </motion.div>
         )}
         {dislikeFeedback && (
