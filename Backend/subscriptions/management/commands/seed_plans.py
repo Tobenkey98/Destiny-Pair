@@ -16,17 +16,18 @@ def plan_defaults():
             price=0,
             billing_cycle='monthly',
             description=(
-                'The starting point: browse verified profiles and get to know '
-                'the community before you commit.'
+                'The starting point: explore every profile, see who liked '
+                'you by name, and send 3 likes and 3 messages a day. '
+                'Subscribe for full access — unlimited chats, saves and more.'
             ),
-            message_limit=10,
+            message_limit=3,
             message_reset_period='daily',
-            active_conversation_limit=3,
+            active_conversation_limit=0,
             audio_minutes_limit=0,
             video_minutes_limit=0,
             profile_view_limit_daily=20,
-            like_limit_daily=5,
-            save_limit_daily=3,
+            like_limit_daily=3,
+            save_limit_daily=0,
             can_use_advanced_filters=False,
             can_see_likes=False,
             can_see_visitors=False,

@@ -3,7 +3,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
 from matching.models import Match
-from matching.notifications import send_like_email, send_match_email
+from matching.notifications import send_like_email, send_match_email, send_photo_reminder_email
 from matching.serializers import MatchSerializer
 from chat.models import Conversation, Message
 from accounts.models import Activity
@@ -45,6 +45,27 @@ class MatchListCreateView(generics.ListCreateAPIView):
             return Response(out, status=status.HTTP_200_OK)
 
         if new_status == 'liked':
+            # Strict rule: no photos, no likes. Every member must have at
+            # least one profile photo and a cover photo first.
+            from django.core.cache import cache
+            from profiles.models import CoverPhoto, Photo
+            has_photo = Photo.objects.filter(user=request.user).exists()
+            has_cover = CoverPhoto.objects.filter(user=request.user).exists()
+            if not (has_photo and has_cover):
+                try:
+                    reminder_key = f'photo_nudge:{request.user.id}'
+                    if not cache.get(reminder_key):
+                        send_photo_reminder_email(request.user)
+                        cache.set(reminder_key, 1, 24 * 3600)
+                except Exception:
+                    pass
+                return Response(
+                    {
+                        'error': 'Upload at least one profile photo and a cover photo before liking anyone.',
+                        'reason': 'PHOTOS_REQUIRED',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
             from subscriptions.services import usage_service
             decision = usage_service.can_like_profile(request.user)
             if not decision['allowed']:

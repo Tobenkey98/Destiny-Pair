@@ -49,7 +49,20 @@ def send_like_email(liker, liked):
         {
             'recipient_name': _display_name(liked),
             'sender_name': _display_name(liker),
-            'profile_url': f'{settings.FRONTEND_URL}/dashboard/discover',
+            'matches_url': f'{settings.FRONTEND_URL}/dashboard/matches',
+        },
+    )
+
+
+def send_photo_reminder_email(user):
+    """Nudge a member who tries to interact without photos uploaded."""
+    _send(
+        'Add your photos to start connecting \u2014 DestinyPair',
+        user.email,
+        'matching/photo_reminder_email.html',
+        {
+            'recipient_name': _display_name(user),
+            'upload_url': f'{settings.FRONTEND_URL}/dashboard/profile',
         },
     )
 

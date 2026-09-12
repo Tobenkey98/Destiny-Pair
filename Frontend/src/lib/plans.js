@@ -4,10 +4,10 @@ import { Crown, Sparkles, Star } from "lucide-react";
 export const PLAN_FALLBACK = [
   {
     name: "Free", slug: "free", price_display: "\u20A60", billing_cycle: "monthly",
-    description: "The starting point: browse verified profiles and get to know the community.",
-    message_limit: 10, message_reset_period: "daily", active_conversation_limit: 3,
+    description: "The starting point: explore every profile, see who liked you by name, and send 3 likes and 3 messages a day.",
+    message_limit: 3, message_reset_period: "daily", active_conversation_limit: 0,
     audio_minutes_limit: 0, video_minutes_limit: 0,
-    profile_view_limit_daily: 20, like_limit_daily: 5, save_limit_daily: 3,
+    profile_view_limit_daily: 20, like_limit_daily: 3, save_limit_daily: 0,
     can_send_voice_notes: false, can_use_read_receipts: false,
     can_see_likes: false, can_see_visitors: false,
     can_use_advanced_filters: false, can_appear_featured: false, can_use_profile_boost: false,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ShieldAlert, Check, X, RotateCcw, ImageIcon, Flag, Ban } from "lucide-react";
+import { ShieldAlert, Check, X, RotateCcw, ImageIcon, Flag, Ban, Images } from "lucide-react";
 import { PageHeader } from "../../components/admin/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -9,12 +9,13 @@ import { api } from "../../lib/api";
 
 const TABS = [
   { key: "photos", label: "Photo Approvals", icon: ImageIcon },
+  { key: "approved", label: "Approved Photos", icon: Images },
   { key: "reports", label: "Member Reports", icon: Flag },
   { key: "bans", label: "Banned Users", icon: Ban },
 ];
 
 export default function AdminModeration() {
-  const [data, setData] = useState({ pending_photos: [], reports: [], banned_users: [] });
+  const [data, setData] = useState({ pending_photos: [], approved_photos: [], reports: [], banned_users: [] });
   const [tab, setTab] = useState("photos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -47,7 +48,7 @@ export default function AdminModeration() {
     }
   };
 
-  const { pending_photos: photos, reports, banned_users: banned } = data;
+  const { pending_photos: photos, approved_photos: approved, reports, banned_users: banned } = data;
 
   return (
     <div className="space-y-6">
@@ -63,6 +64,7 @@ export default function AdminModeration() {
         {TABS.map((t) => {
           const count =
             t.key === "photos" ? photos.length :
+            t.key === "approved" ? approved.length :
             t.key === "reports" ? reports.length :
             banned.length;
           const active = tab === t.key;
@@ -116,6 +118,37 @@ export default function AdminModeration() {
                         <X className="h-4 w-4" /> Reject
                       </Button>
                     </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )
+      ) : tab === "approved" ? (
+        approved.length === 0 ? (
+          <Card><CardContent className="py-16 text-center">
+            <Images className="h-10 w-10 text-emerald/40 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No approved photos yet.</p>
+          </CardContent></Card>
+        ) : (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {approved.map((p, i) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.02, 0.4) }}
+              >
+                <Card className="overflow-hidden">
+                  <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
+                    <img src={p.image} alt={`${p.user_name}'s photo`} className="h-full w-full object-cover" loading="lazy" />
+                  </div>
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-sm font-medium truncate">{p.user_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                    <p className="text-[11px] text-muted-foreground/60">
+                      {p.is_primary ? "Primary • " : ""}{new Date(p.created_at).toLocaleDateString()}
+                    </p>
                   </CardContent>
                 </Card>
               </motion.div>

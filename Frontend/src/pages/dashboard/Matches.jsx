@@ -9,10 +9,13 @@ import { FourSquare } from "react-loading-indicators";
 import { api } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
 
-function ConnectionNode({ conn, index, userId, onRespond }) {
+function ConnectionNode({ conn, index, userId, onRespond, canSeeLikes }) {
   const isFromMe = String(conn.from_user) === String(userId);
   const isIncomingRequest = !isFromMe && conn.status === "liked";
   const hasChat = !!conn.conversation_id;
+  // Free/visible-only members see the liker's name but must subscribe to
+  // open, accept, or reject the request.
+  const gated = isIncomingRequest && !canSeeLikes;
   const otherName = isFromMe
     ? (conn.to_user_name || conn.to_user)
     : (conn.from_user_name || conn.from_user);
@@ -41,7 +44,7 @@ function ConnectionNode({ conn, index, userId, onRespond }) {
       whileHover={{ y: -6, scale: 1.02 }}
       className="group relative"
     >
-      <Link to={conn.conversation_id ? `/dashboard/chat/${conn.conversation_id}` : "/dashboard/chat"}>
+      <Link to={gated ? "/membership" : conn.conversation_id ? `/dashboard/chat/${conn.conversation_id}` : "/dashboard/chat"}>
         <div className="relative p-5 rounded-3xl bg-background/80 backdrop-blur-xl border border-border/60 shadow-soft hover:shadow-luxe transition-all overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald/3 via-transparent to-gold/3 opacity-0 group-hover:opacity-100 transition" />
 
@@ -68,7 +71,15 @@ function ConnectionNode({ conn, index, userId, onRespond }) {
             </div>
 
             <div className="flex items-center gap-1">
-              {isIncomingRequest ? (
+              {gated ? (
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate("/membership"); }}
+                  className="px-3 py-1.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-xs font-bold hover:shadow-glow transition whitespace-nowrap"
+                >
+                  Subscribe to Respond
+                </motion.button>
+              ) : isIncomingRequest ? (
                 <>
                   <motion.button
                     whileTap={{ scale: 0.9 }}
@@ -110,6 +121,7 @@ export default function Matches() {
   const [tab, setTab] = useState("all");
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [canSeeLikes, setCanSeeLikes] = useState(true);
 
   function fetchConnections() {
     api.getMatches()
@@ -120,7 +132,17 @@ export default function Matches() {
 
   useEffect(() => { fetchConnections(); }, []);
 
+  useEffect(() => {
+    api.getUsage()
+      .then((u) => setCanSeeLikes(!!u?.features?.can_see_likes))
+      .catch(() => {});
+  }, []);
+
   async function handleRespond(conn, status) {
+    if (!canSeeLikes) {
+      navigate("/membership");
+      return;
+    }
     const name = conn.from_user_name || "this user";
     if (status === "rejected" && !confirm(`Reject the like request from ${name}?`)) return;
     try {
@@ -182,7 +204,7 @@ export default function Matches() {
       ) : (
         <motion.div layout className="space-y-3">
           {filtered.map((conn, i) => (
-            <ConnectionNode key={conn.id} conn={conn} index={i} userId={user?.id} onRespond={handleRespond} />
+            <ConnectionNode key={conn.id} conn={conn} index={i} userId={user?.id} onRespond={handleRespond} canSeeLikes={canSeeLikes} />
           ))}
           {filtered.length === 0 && (
             <div className="text-center py-16">

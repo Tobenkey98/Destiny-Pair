@@ -226,6 +226,35 @@ class AdminUserDeleteView(APIView):
         return Response({'status': 'User deleted successfully.'})
 
 
+class AdminUserPhotosView(APIView):
+    """GET /api/admin/users/<id>/photos/ — every photo a member uploaded,
+    newest first, with absolute URLs so the admin console can display them."""
+    permission_classes = [IsSuperAdminOrOperationsAdmin]
+
+    def get(self, request, user_id):
+        from profiles.models import CoverPhoto, Photo
+
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        photos = [{
+            'id': p.id,
+            'image': request.build_absolute_uri(p.image.url) if p.image else '',
+            'is_primary': p.is_primary,
+            'approved': p.approved,
+            'created_at': p.created_at.isoformat(),
+        } for p in Photo.objects.filter(user=user).order_by('-is_primary', '-created_at')]
+
+        cover = CoverPhoto.objects.filter(user=user).first()
+
+        return Response({
+            'photos': photos,
+            'cover_photo': request.build_absolute_uri(cover.image.url) if cover and cover.image else '',
+        })
+
+
 class AdminPhotoApprovalView(APIView):
     permission_classes = [IsSuperAdminOrModerator]
     parser_classes = [JSONParser, MultiPartParser, FormParser]
@@ -599,6 +628,21 @@ class AdminModerationView(APIView):
             'date_joined': u.date_joined.isoformat(),
         } for u in banned]
 
+        approved_photos = (
+            Photo.objects.filter(approved=True)
+            .select_related('user')
+            .order_by('-created_at')[:100]
+        )
+        approved_data = [{
+            'id': p.id,
+            'user_id': p.user_id,
+            'user_name': p.user.get_full_name() or p.user.email,
+            'email': p.user.email,
+            'image': request.build_absolute_uri(p.image.url) if p.image else '',
+            'is_primary': p.is_primary,
+            'created_at': p.created_at.isoformat(),
+        } for p in approved_photos]
+
         AuditService.log(
             actor=request.user,
             action="Viewed Moderation Queue",
@@ -609,6 +653,7 @@ class AdminModerationView(APIView):
 
         return Response({
             'pending_photos': photo_data,
+            'approved_photos': approved_data,
             'reports': report_data,
             'banned_users': banned_data,
         })

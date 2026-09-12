@@ -23,6 +23,8 @@ export default function AdminUsers() {
   const [loading, setLoading] = useState(true);
   const [detailUser, setDetailUser] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
+  const [detailPhotos, setDetailPhotos] = useState([]);
+  const [detailCover, setDetailCover] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const isModerator = hasRole('moderator');
@@ -55,6 +57,8 @@ export default function AdminUsers() {
 
   function openDetail(u) {
     setDetailUser(null);
+    setDetailPhotos([]);
+    setDetailCover("");
     setDetailError("");
     setDetailOpen(true);
     setDetailLoading(true);
@@ -62,6 +66,12 @@ export default function AdminUsers() {
       .then(setDetailUser)
       .catch((err) => setDetailError(err.data?.error || err.message))
       .finally(() => setDetailLoading(false));
+    api.adminUserPhotos(u.id)
+      .then((data) => {
+        setDetailPhotos(Array.isArray(data?.photos) ? data.photos : []);
+        setDetailCover(data?.cover_photo || "");
+      })
+      .catch(() => {});
   }
 
   async function handleBlock(u) {
@@ -294,6 +304,31 @@ export default function AdminUsers() {
 
               {detailUser && !detailLoading && (
                 <div className="space-y-6">
+                  <DetailSection title={`Photos (${detailPhotos.length})`}>
+                    {detailCover && (
+                      <div className="sm:col-span-2">
+                        <div className="text-[11px] text-muted-foreground mb-1.5">Cover photo</div>
+                        <img src={detailCover} alt="Cover" className="h-32 w-full object-cover rounded-xl border" />
+                      </div>
+                    )}
+                    {detailPhotos.length === 0 && !detailCover ? (
+                      <p className="sm:col-span-2 text-sm text-muted-foreground">No photos uploaded.</p>
+                    ) : (
+                      detailPhotos.map((p) => (
+                        <div key={p.id} className="relative">
+                          <img src={p.image} alt="User upload" className="h-36 w-full object-cover rounded-xl border" />
+                          <div className="absolute top-2 left-2 flex gap-1.5">
+                            {p.is_primary && (
+                              <span className="px-2 py-0.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-[10px] font-bold">Primary</span>
+                            )}
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.approved ? "bg-emerald-500/90 text-white" : "bg-amber-500/90 text-white"}`}>
+                              {p.approved ? "Approved" : "Pending"}
+                            </span>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </DetailSection>
                   <DetailSection title="Account">
                     <DetailRow label="Status" value={detailUser.is_banned ? "Banned" : detailUser.is_active ? "Active" : "Inactive"} />
                     <DetailRow label="Verified" value={detailUser.is_verified ? "Yes" : "No"} />

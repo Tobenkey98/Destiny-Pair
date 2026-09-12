@@ -199,6 +199,9 @@ export const api = {
   getCurrentSubscription() {
     return request('/subscriptions/current/', { method: 'GET' });
   },
+  getUsage() {
+    return request('/subscriptions/usage/', { method: 'GET' });
+  },
   startCall(conversationId, callType = 'audio') {
     return request('/subscriptions/calls/start/', {
       method: 'POST',
@@ -261,6 +264,9 @@ export const api = {
   },
   adminDeleteUser(userId) {
     return request(`/admin/users/${userId}/delete/`, { method: 'DELETE' });
+  },
+  adminUserPhotos(userId) {
+    return request(`/admin/users/${userId}/photos/`, { method: 'GET' });
   },
   adminApprovePhoto(photoId, action) {
     return request('/admin/photos/approve/', { method: 'POST', body: JSON.stringify({ photo_id: photoId, action }) });

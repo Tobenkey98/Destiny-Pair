@@ -169,6 +169,11 @@ class LoginView(APIView):
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
         tokens = get_tokens_for_user(user)
+        try:
+            from accounts.services.engagement import maybe_send_engagement_nudges
+            maybe_send_engagement_nudges(user)
+        except Exception:
+            pass
         return Response({'user': UserSerializer(user, context={'request': request}).data, 'tokens': tokens})
 
 
@@ -260,6 +265,11 @@ class SocialAuthView(APIView):
         user.last_login = timezone.now()
         user.save(update_fields=['last_login'])
         tokens = get_tokens_for_user(user)
+        try:
+            from accounts.services.engagement import maybe_send_engagement_nudges
+            maybe_send_engagement_nudges(user)
+        except Exception:
+            pass
         return Response({
             'user': UserSerializer(user, context={'request': request}).data,
             'tokens': tokens,
