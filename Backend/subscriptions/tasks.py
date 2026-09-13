@@ -28,21 +28,10 @@ def expire_overdue_subscriptions():
 
 @shared_task
 def send_expiry_reminders():
-    """Notify users whose subscription ends within the next 48h."""
-    from notifications.models import Notification
+    """Notify (email + in-app) users whose subscription ends within 48h."""
+    from subscriptions.services.reminders import run_expiry_reminders
 
-    count = 0
-    for sub in expiry_service.expiring_soon(hours=48).select_related('user', 'plan'):
-        user = sub.user
-        Notification.objects.create(
-            user=user,
-            title='Subscription expiring soon',
-            message=(
-                f'Your {sub.plan.name} plan expires on '
-                f'{sub.end_date.strftime("%d %b %Y")}. Renew to keep your perks.'
-            ),
-        )
-        count += 1
+    count = run_expiry_reminders(hours=48)
     if count:
         logger.info('Sent %d expiry reminder(s)', count)
     return {'reminders': count}

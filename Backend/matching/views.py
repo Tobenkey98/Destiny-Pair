@@ -50,6 +50,27 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # STRICT subscription rule — no favoritism for male or female:
+        # a like request only takes effect once BOTH members hold an active
+        # paid subscription. Nothing (no activity, no email, no chat) is
+        # recorded until then.
+        if new_status == 'liked':
+            from subscriptions.services import plan_service
+            if (
+                not plan_service.is_paid_subscriber(request.user)
+                or not plan_service.is_paid_subscriber(to_user)
+            ):
+                return Response(
+                    {
+                        'error': (
+                            'Likes and matches require an active subscription '
+                            'on both members. Subscribe to keep connecting.'
+                        ),
+                        'reason': 'SUBSCRIPTION_REQUIRED',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
         existing = Match.objects.filter(from_user=request.user, to_user=to_user).first()
         if existing and existing.status == 'matched':
             out = MatchSerializer(existing, context={'request': request}).data
@@ -229,6 +250,25 @@ class MatchUpdateView(generics.UpdateAPIView):
                 {'error': 'This request was already answered.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # STRICT subscription rule: answering a like also needs BOTH sides
+        # subscribed — same gate for male and female accounts.
+        if new_status == 'matched':
+            from subscriptions.services import plan_service
+            if (
+                not plan_service.is_paid_subscriber(request.user)
+                or not plan_service.is_paid_subscriber(match.from_user)
+            ):
+                return Response(
+                    {
+                        'error': (
+                            'Both members must have an active subscription '
+                            'to match and chat. Subscribe to continue.'
+                        ),
+                        'reason': 'SUBSCRIPTION_REQUIRED',
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
         conv_id = None
         if new_status == 'matched':

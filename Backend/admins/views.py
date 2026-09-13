@@ -990,51 +990,21 @@ class AdminInvitationListCreateView(generics.ListCreateAPIView):
         try:
             from django.core.mail import send_mail
             from django.conf import settings
+            from django.template.loader import render_to_string
+            from django.utils.html import strip_tags
 
             role_display = invitation.get_role_display()
             signup_url = f"{settings.FRONTEND_URL or 'http://127.0.0.1:5173'}/admin/signup?token={invitation.token}"
 
-            html = f"""<!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"></head>
-<body style="margin:0;padding:0;background:#f5f2eb;font-family:'Segoe UI',system-ui,-apple-system,sans-serif;">
-<table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:32px 16px;">
-<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:24px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.06);">
-<tr><td style="background:linear-gradient(135deg,#065f46,#047857);padding:40px 40px 32px;text-align:center;">
-<img src="https://img.icons8.com/fluency/96/cross.png" alt="" width="56" height="56" style="display:block;margin:0 auto 16px;border-radius:16px;">
-<h1 style="margin:0;font-size:22px;font-weight:700;color:#fbbf24;letter-spacing:-0.3px;">DestinyPair</h1>
-<p style="margin:4px 0 0;font-size:14px;color:rgba(255,255,255,0.7);">Admin Invitation</p>
-</td></tr>
-<tr><td style="padding:40px 40px 32px;">
-<h2 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#0f172a;">You're Invited!</h2>
-<p style="margin:0 0 20px;font-size:15px;color:#475569;line-height:1.6;">
-You have been invited to join the <strong style="color:#065f46;">DestinyPair</strong> admin team as
-<strong style="color:#065f46;">{role_display}</strong>.
-</p>
-<table cellpadding="0" cellspacing="0" style="background:#f0fdf4;border-radius:16px;padding:20px;margin-bottom:24px;width:100%;">
-<tr><td>
-<p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#065f46;">YOUR INVITATION TOKEN</p>
-<p style="margin:0;font-family:'Courier New',monospace;font-size:13px;color:#475569;word-break:break-all;background:#ffffff;border:1px solid #d1d5db;border-radius:10px;padding:12px 16px;text-align:center;">{invitation.token}</p>
-</td></tr>
-</table>
-<p style="margin:0 0 8px;font-size:14px;color:#475569;">Click the button below to create your account:</p>
-<table cellpadding="0" cellspacing="0"><tr><td align="center" style="border-radius:999px;background:linear-gradient(135deg,#065f46,#047857);padding:0;">
-<a href="{signup_url}" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:999px;">Accept Invitation</a>
-</td></tr></table>
-<p style="margin:20px 0 0;font-size:13px;color:#94a3b8;">Or copy and paste this link into your browser:</p>
-<p style="margin:4px 0 0;font-size:12px;color:#64748b;word-break:break-all;"><a href="{signup_url}" style="color:#065f46;">{signup_url}</a></p>
-</td></tr>
-<tr><td style="background:#f8fafc;padding:24px 40px;text-align:center;border-top:1px solid #e2e8f0;">
-<p style="margin:0;font-size:12px;color:#94a3b8;">&copy; DestinyPair &mdash; Faith-led unions built on purpose.</p>
-</td></tr>
-</table>
-</td></tr></table>
-</body>
-</html>"""
-
+            context = {
+                'role_display': role_display,
+                'signup_url': signup_url,
+                'token': invitation.token,
+            }
+            html = render_to_string('admins/admin_invitation_email.html', context)
             send_mail(
                 'You\'re Invited — DestinyPair Admin Access',
-                f'You have been invited to join the DestinyPair admin team as {role_display}. Your invitation token is: {invitation.token}',
+                strip_tags(html),
                 settings.DEFAULT_FROM_EMAIL,
                 [invitation.email],
                 html_message=html,

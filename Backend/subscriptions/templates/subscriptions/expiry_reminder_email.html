@@ -1,0 +1,14 @@
+{% extends 'emails/base_email.html' %}
+{% block title %}Your subscription is expiring soon — DestinyPair{% endblock %}
+{% block content %}
+        <h2>Don&rsquo;t let the door close, {{ recipient_name }}.</h2>
+        <p>Your <strong>{{ plan_name }}</strong> plan on DestinyPair expires on <strong>{{ expiry_date }}</strong>. Renew today to keep unlimited chats, likes, calls and every perk of your membership &mdash; uninterrupted.</p>
+        <div class="panel">
+          <p>&#10003; &nbsp;Keep your matches and conversations active.</p>
+          <p>&#10003; &nbsp;Continue seeing who liked you and respond.</p>
+          <p>&#10003; &nbsp;Voice notes, calls and priority visibility.</p>
+        </div>
+        <a class="btn btn-gold" href="{{ renew_url }}">Renew My Membership</a>
+        <hr class="divider">
+        <p class="fine">Questions about plans? Write to us at support@destinypair.net.</p>
+{% endblock %}

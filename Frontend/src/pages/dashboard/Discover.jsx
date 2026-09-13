@@ -167,17 +167,15 @@ export default function Discover() {
 
   async function handleLike(userId) {
     const profile = profiles.find(p => p.id === userId);
-    if (currentIndex < profiles.length - 1) {
-      goNext();
-    } else {
-      setProfiles(prev => prev.filter(p => p.id !== userId));
-    }
-
-    setLikeFeedback(userId);
-    setTimeout(() => setLikeFeedback(null), 1200);
-
     try {
       const match = await api.createMatch({ to_user: userId, status: "liked" });
+      setLikeFeedback(userId);
+      setTimeout(() => setLikeFeedback(null), 1200);
+      if (currentIndex < profiles.length - 1) {
+        goNext();
+      } else {
+        setProfiles(prev => prev.filter(p => p.id !== userId));
+      }
       if (match.conversation_id) setLikeConvId(match.conversation_id);
       if (match.status === "matched") {
         setMatchedUser(profile || { first_name: "User" });
@@ -185,6 +183,14 @@ export default function Discover() {
       }
     } catch (err) {
       console.error("Like failed:", err);
+      if (err.data?.reason === "SUBSCRIPTION_REQUIRED") {
+        alert(
+          "Likes and matches require an active subscription on BOTH members. Subscribe to keep connecting."
+        );
+        navigate("/membership");
+      } else {
+        alert(err.data?.error || err.message || "Could not send your like. Please try again.");
+      }
     }
   }
 
