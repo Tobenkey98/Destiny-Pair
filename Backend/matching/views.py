@@ -3,7 +3,7 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
 from matching.models import Match
-from matching.notifications import send_like_email, send_match_email, send_photo_reminder_email
+from matching.notifications import send_like_email, send_match_email, send_photo_reminder_email, send_request_accepted_email
 from matching.serializers import MatchSerializer
 from chat.models import Conversation, Message
 from accounts.models import Activity
@@ -143,8 +143,11 @@ class MatchListCreateView(generics.ListCreateAPIView):
                     related_user=request.user,
                 )
 
-                # Email both sides the moment the match forms.
+                # Email both users immediately when a mutual match forms.
                 send_match_email(match.from_user, match.to_user)
+                # Plus a dedicated acceptance email to the first liker with a
+                # direct link into the new conversation.
+                send_request_accepted_email(match.to_user, request.user, conv_id)
             else:
                 # Unreachable: the branch above guarantees a liked reverse row.
                 pass
@@ -260,6 +263,9 @@ class MatchUpdateView(generics.UpdateAPIView):
                 related_user=request.user,
             )
             send_match_email(request.user, match.from_user)
+            # Dedicated acceptance email to the liker with a direct link
+            # into the new conversation so they land in the right chat.
+            send_request_accepted_email(match.from_user, request.user, conv_id)
         else:
             match.status = 'rejected'
             match.save(update_fields=['status'])

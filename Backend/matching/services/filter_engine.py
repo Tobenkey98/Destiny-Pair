@@ -83,7 +83,13 @@ def _exclude_expired_subscriptions(qs):
 
 def _apply_religion_filter(qs, user):
     if user.faith:
-        qs = qs.filter(faith__iexact=user.faith)
+        # Members who never set a faith are still shown (incomplete
+        # profiles must remain discoverable); only mismatches hide.
+        qs = qs.filter(
+            Q(faith__iexact=user.faith) |
+            Q(faith='') |
+            Q(faith__isnull=True)
+        )
     return qs
 
 

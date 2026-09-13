@@ -91,3 +91,19 @@ def send_match_email(match_a, match_b):
             'chat_url': f'{settings.FRONTEND_URL}/dashboard/chat',
         },
     )
+
+
+def send_request_accepted_email(liker, accepter, conversation_id):
+    """Tell the liker their request was accepted, with a direct chat link."""
+    if liker.id == accepter.id:
+        return
+    _send(
+        f'{_display_name(accepter)} accepted your like request \u2764',
+        liker.email,
+        'matching/request_accepted_email.html',
+        {
+            'recipient_name': _display_name(liker),
+            'accepter_name': _display_name(accepter),
+            'chat_url': f'{settings.FRONTEND_URL}/dashboard/chat/{conversation_id}',
+        },
+    )
