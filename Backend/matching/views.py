@@ -14,9 +14,19 @@ class MatchListCreateView(generics.ListCreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Match.objects.filter(
-            Q(from_user=self.request.user) | Q(to_user=self.request.user)
-        ).order_by('-updated_at')
+        user = self.request.user
+        # STRICT opposite-gender separation in Connections too.
+        OPPOSITE = {'male': 'female', 'female': 'male'}
+        other = OPPOSITE.get((user.gender or '').strip().lower())
+        qs = Match.objects.filter(
+            Q(from_user=user) | Q(to_user=user)
+        )
+        if other:
+            qs = qs.filter(
+                Q(from_user=user, to_user__gender__iexact=other) |
+                Q(to_user=user, from_user__gender__iexact=other)
+            )
+        return qs.order_by('-updated_at')
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -27,6 +37,16 @@ class MatchListCreateView(generics.ListCreateAPIView):
         if to_user.id == request.user.id:
             return Response(
                 {'error': 'You cannot like yourself.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # STRICT opposite-gender rule: males only like females and vice
+        # versa; same-gender likes are rejected outright.
+        liker_gender = (request.user.gender or '').strip().lower()
+        target_gender = (to_user.gender or '').strip().lower()
+        if liker_gender and target_gender and liker_gender == target_gender:
+            return Response(
+                {'error': 'You can only send likes to the opposite gender.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

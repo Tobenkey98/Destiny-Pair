@@ -38,9 +38,16 @@ def get_qualified_candidates(user):
 
 
 def _exclude_same_gender(qs, user):
-    if user.gender:
-        qs = qs.exclude(gender=user.gender)
-    return qs
+    # STRICT opposite-gender rule for Discover and Connections:
+    # a viewer only ever sees (and can only be seen by) the other gender.
+    # gender is free-form text, so every comparison is case-insensitive.
+    OPPOSITE = {'male': 'female', 'female': 'male'}
+    other = OPPOSITE.get((user.gender or '').strip().lower())
+    if other:
+        return qs.filter(gender__iexact=other)
+    # Viewer has not declared a gender: only show profiles that declared
+    # one, so the split stays clean instead of clustering everyone together.
+    return qs.filter(Q(gender__iexact='male') | Q(gender__iexact='female'))
 
 
 def _exclude_existing_matches(qs, user):
