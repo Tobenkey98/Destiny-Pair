@@ -1,9 +1,7 @@
-from django.db.models import Q, Exists, OuterRef
+from django.db.models import Q
 from django.contrib.auth import get_user_model
-from django.utils import timezone
 
 from matching.models import Match
-from subscriptions.models import UserSubscription
 
 User = get_user_model()
 
@@ -25,9 +23,11 @@ def get_qualified_candidates(user):
     qs = _exclude_same_gender(qs, user)
     qs = _exclude_existing_matches(qs, user)
     qs = _exclude_blocked_or_rejected(qs, user)
-    qs = _exclude_expired_subscriptions(qs)
-    qs = _apply_religion_filter(qs, user)
 
+    # NOTE: subscription status and faith are deliberately NOT hard filters.
+    # Membership gates *actions* (likes, accepts, messaging) — it must never
+    # make a member invisible on Discover. Faith mismatch is only a ranking
+    # signal; every declared opposite-gender member must be discoverable.
     # The remaining preference filters (denomination, age range, state,
     # marital status, genotype, education, occupation) are deliberately NOT
     # applied as hard filters here. They feed into the compatibility score
@@ -78,26 +78,6 @@ def _exclude_blocked_or_rejected(qs, user):
             exclude_ids.add(m['from_user_id'])
 
     return qs.exclude(id__in=exclude_ids)
-
-
-def _exclude_expired_subscriptions(qs):
-    now = timezone.now()
-    expired_user_ids = UserSubscription.objects.filter(
-        active=False, end_date__lt=now
-    ).values_list('user_id', flat=True)
-    return qs.exclude(id__in=expired_user_ids)
-
-
-def _apply_religion_filter(qs, user):
-    if user.faith:
-        # Members who never set a faith are still shown (incomplete
-        # profiles must remain discoverable); only mismatches hide.
-        qs = qs.filter(
-            Q(faith__iexact=user.faith) |
-            Q(faith='') |
-            Q(faith__isnull=True)
-        )
-    return qs
 
 
 def _apply_denomination_filter(qs, user):

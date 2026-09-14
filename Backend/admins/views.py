@@ -1152,6 +1152,44 @@ class AdminAuditLogView(ListAPIView):
         })
 
 
+class AdminChatModerationLogView(APIView):
+    """Chat-monitor audit trail: every message the real-time content policy
+    blocked, so admins can monitor contact/sexual/money attempts."""
+
+    permission_classes = [IsSuperAdminOrModerator]
+
+    def get(self, request):
+        from chat.models import ModerationLog
+        from .serializers import ChatModerationLogSerializer
+
+        category = request.query_params.get('category', '')
+        limit = int(request.query_params.get('limit', 50) or 50)
+        offset = int(request.query_params.get('offset', 0) or 0)
+
+        qs = ModerationLog.objects.select_related('sender', 'recipient').order_by('-created_at')
+        if category:
+            qs = qs.filter(category=category)
+        total = qs.count()
+        logs = qs[offset:offset + limit]
+
+        serializer = ChatModerationLogSerializer(logs, many=True)
+
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Chat Moderation Logs",
+            action_type="read",
+            target_model="ModerationLog",
+            request=request,
+        )
+
+        return Response({
+            'total': total,
+            'offset': offset,
+            'limit': limit,
+            'results': serializer.data,
+        })
+
+
 class AdminSettingsView(APIView):
     permission_classes = [IsSuperAdmin]
 

@@ -6,6 +6,7 @@ from django.db.models import Q
 
 from chat.models import Conversation, Message
 from chat.serializers import ConversationSerializer, MessageSerializer
+from chat.content_policy import check_message_policy, PolicyViolation
 from accounts.models import Activity
 
 
@@ -36,10 +37,25 @@ class MessageListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         from subscriptions.services import usage_service
-        from chat.content_policy import check_message_policy, PolicyViolation
 
-        violation = check_message_policy(serializer.validated_data.get('message', ''))
+        message = serializer.validated_data.get('message', '')
+        violation = check_message_policy(message)
         if violation:
+            from chat.moderation import record_policy_block
+
+            conversation = serializer.validated_data.get('conversation')
+            recipient = None
+            if conversation is not None:
+                recipient = conversation.participants.exclude(id=self.request.user.id).first()
+
+            record_policy_block(
+                text=message,
+                violation=violation,
+                sender=self.request.user,
+                recipient_id=recipient.id if recipient else None,
+                conversation_id=conversation.id if conversation else None,
+                channel='rest',
+            )
             raise PolicyViolation(violation)
 
         decision = usage_service.can_send_message(self.request.user)

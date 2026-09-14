@@ -138,3 +138,32 @@ class RoleAssignmentSerializer(serializers.Serializer):
         choices=AdminProfile.DEPARTMENT_CHOICES, required=False, default=''
     )
     is_active = serializers.BooleanField(required=False, default=True)
+
+
+class ChatModerationLogSerializer(serializers.Serializer):
+    id = serializers.IntegerField(read_only=True)
+    created_at = serializers.DateTimeField(read_only=True)
+    sender_id = serializers.IntegerField(read_only=True)
+    sender_name = serializers.SerializerMethodField()
+    sender_email = serializers.EmailField(source='sender.email', read_only=True)
+    recipient_id = serializers.IntegerField(read_only=True)
+    recipient_name = serializers.SerializerMethodField()
+    recipient_email = serializers.EmailField(source='recipient.email', read_only=True)
+    conversation_id = serializers.IntegerField(read_only=True)
+    category = serializers.CharField(read_only=True)
+    code = serializers.CharField(read_only=True)
+    channel = serializers.CharField(read_only=True)
+    excerpt = serializers.CharField(read_only=True)
+    matched_terms = serializers.CharField(read_only=True)
+
+    def get_sender_name(self, obj):
+        return self._name(obj.sender, 'Deleted user')
+
+    def get_recipient_name(self, obj):
+        return self._name(obj.recipient, 'Deleted user')
+
+    @staticmethod
+    def _name(user, fallback):
+        if not user:
+            return fallback
+        return f"{user.first_name} {user.last_name}".strip() or user.email

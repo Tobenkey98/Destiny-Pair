@@ -274,6 +274,10 @@ export const api = {
   adminModeration() {
     return request('/admin/moderation/', { method: 'GET' });
   },
+  adminChatModerationLogs(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/admin/chat/moderation-logs/${qs ? '?' + qs : ''}`, { method: 'GET' });
+  },
   adminMatches() {
     return request('/admin/matches/', { method: 'GET' });
   },

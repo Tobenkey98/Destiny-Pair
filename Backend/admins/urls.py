@@ -32,6 +32,7 @@ urlpatterns = [
     path('admins/<int:user_id>/approve/', views.AdminApproveView.as_view(), name='admin-approve'),
     path('users/<int:user_id>/reset-password/', views.AdminResetPasswordView.as_view(), name='admin-reset-password'),
     path('audit-log/', views.AdminAuditLogView.as_view(), name='admin-audit-log'),
+    path('chat/moderation-logs/', views.AdminChatModerationLogView.as_view(), name='admin-chat-moderation-logs'),
     path('settings/', views.AdminSettingsView.as_view(), name='admin-settings'),
     path('notifications/broadcast/', views.AdminNotificationBroadcastView.as_view(), name='admin-notification-broadcast'),
     path('notifications/feed/', views.AdminNotificationFeedView.as_view(), name='admin-notification-feed'),

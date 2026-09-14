@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ShieldAlert, Check, X, RotateCcw, ImageIcon, Flag, Ban, Images } from "lucide-react";
+import { ShieldAlert, Check, X, RotateCcw, ImageIcon, Flag, Ban, Images, MessagesSquare } from "lucide-react";
 import { PageHeader } from "../../components/admin/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -11,11 +11,19 @@ const TABS = [
   { key: "photos", label: "Photo Approvals", icon: ImageIcon },
   { key: "approved", label: "Approved Photos", icon: Images },
   { key: "reports", label: "Member Reports", icon: Flag },
+  { key: "blocked", label: "Blocked Messages", icon: MessagesSquare },
   { key: "bans", label: "Banned Users", icon: Ban },
 ];
 
+const CATEGORY_VARIANT = {
+  contacts: "default",
+  sexual: "destructive",
+  financial: "warning",
+};
+
 export default function AdminModeration() {
   const [data, setData] = useState({ pending_photos: [], approved_photos: [], reports: [], banned_users: [] });
+  const [blockLogs, setBlockLogs] = useState(null);
   const [tab, setTab] = useState("photos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -28,7 +36,18 @@ export default function AdminModeration() {
       .finally(() => setLoading(false));
   }, []);
 
+  const loadBlocked = useCallback(() => {
+    api.adminChatModerationLogs({ limit: 100 })
+      .then(setBlockLogs)
+      .catch((err) => setError(err.message || "Failed to load blocked messages"))
+      .finally(() => setTab((t) => t));
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (tab === "blocked" && blockLogs === null) loadBlocked();
+  }, [tab, blockLogs, loadBlocked]);
 
   const actOnPhoto = async (photoId, action) => {
     try {
@@ -66,6 +85,7 @@ export default function AdminModeration() {
             t.key === "photos" ? photos.length :
             t.key === "approved" ? approved.length :
             t.key === "reports" ? reports.length :
+            t.key === "blocked" ? (blockLogs?.total ?? 0) :
             banned.length;
           const active = tab === t.key;
           return (
@@ -199,6 +219,48 @@ export default function AdminModeration() {
                       Suspend
                     </Button>
                   </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )
+      ) : tab === "blocked" ? (
+        blockLogs === null ? (
+          <Card><CardContent className="py-16 text-center text-sm text-muted-foreground">Loading blocked messages…</CardContent></Card>
+        ) : (blockLogs.results || []).length === 0 ? (
+          <Card><CardContent className="py-16 text-center">
+            <MessagesSquare className="h-10 w-10 text-emerald/40 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No blocked messages. The chat monitor is all caught up.</p>
+          </CardContent></Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Chat Monitor — Blocked Messages</CardTitle>
+            </CardHeader>
+            <CardContent className="divide-y divide-border">
+              {blockLogs.results.map((log) => (
+                <div key={log.id} className="py-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{log.sender_name}</span>
+                    <span className="text-xs text-muted-foreground">attempted</span>
+                    <Badge variant={CATEGORY_VARIANT[log.category] || "default"}>{log.code}</Badge>
+                    <Badge variant="outline">{log.channel === "ws" ? "WebSocket" : "REST"}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    to {log.recipient_name || "deleted user"}
+                    <span className="mx-1">•</span>
+                    {new Date(log.created_at).toLocaleString()}
+                  </p>
+                  {log.excerpt && (
+                    <p className="text-sm text-foreground/90 mt-2 rounded-lg bg-muted px-3 py-2 break-words min-w-0">
+                      “{log.excerpt}”
+                    </p>
+                  )}
+                  {log.matched_terms && (
+                    <p className="text-[11px] text-destructive mt-1.5 break-words">
+                      Matched: {log.matched_terms}
+                    </p>
+                  )}
                 </div>
               ))}
             </CardContent>

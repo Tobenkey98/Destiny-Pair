@@ -300,6 +300,7 @@ class ChatConsumer(PresenceConsumerBase):
                 return
             violation = check_message_policy(text)
             if violation:
+                await self.log_policy_block(text, violation)
                 await self.send(text_data=json.dumps({
                     'type': 'policy_block',
                     'code': violation['code'],
@@ -495,3 +496,27 @@ class ChatConsumer(PresenceConsumerBase):
     def record_message_sent(self):
         from subscriptions.services import usage_service
         usage_service.record_message_sent(self.user)
+
+    @database_sync_to_async
+    def log_policy_block(self, text, violation):
+        """Audit a blocked message so admins can monitor the chat."""
+        from chat.moderation import record_policy_block
+
+        recipient_id = None
+        conversation_id = None
+        try:
+            conversation = Conversation.objects.get(id=self.conv_id)
+            conversation_id = conversation.id
+            other = conversation.participants.exclude(id=self.user.id).first()
+            recipient_id = other.id if other else None
+        except Conversation.DoesNotExist:
+            pass
+
+        record_policy_block(
+            text=text,
+            violation=violation,
+            sender=self.user,
+            recipient_id=recipient_id,
+            conversation_id=conversation_id,
+            channel='ws',
+        )

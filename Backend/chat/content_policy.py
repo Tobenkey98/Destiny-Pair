@@ -1,31 +1,44 @@
-"""Godly-community chat content policy.
+"""Godly-community chat content policy (strict, real-time).
 
-DestinyPair is a Christ-centred dating platform. Messages that share personal
-contact details, sexual content, or financial/business transactions are
-blocked before they reach the database, on both the WebSocket and REST paths.
+DestinyPair is a Christ-centred dating platform. Every text message is
+scanned synchronously *before* it is saved or broadcast (on both the
+WebSocket and REST paths), so a violating message is never delivered to the
+recipient and never stored in the database. Each violation is also written to
+the ``ModerationLog`` so admins can monitor chat activity.
 
-All matchers are designed to be explicit about *why* a message was blocked so
-the frontend can show a clear, friendly explanation.
+All matchers are explicit about *why* a message was blocked: ``check_message_policy``
+returns a dict with ``category``, ``code``, a friendly ``reason`` (for the
+sender's UI) and ``matches`` (the offending snippets, for the admin log).
+
+Term lists are matched at word boundaries, so ordinary words can never be
+flagged by accident (e.g. the sexual term "sex" can never match inside
+"text"). Multi-word phrases and ``\\w*`` stem suffixes (e.g. ``masturbat\\w*``)
+are supported so word forms are caught without substring false positives.
 """
 
 import re
 
 # ---------------------------------------------------------------------------
-# Category 1 — Contact sharing (no phone numbers, emails, social handles, links)
+# Category 1 — Contact sharing (no phones, emails, socials, links, addresses)
 # ---------------------------------------------------------------------------
 
-# Loose international / Nigerian phone numbers. Requires a leading '+', a
-# country-style spaced group, or a bare 11+ digit run (Nigerian mobiles are 11
-# digits) so ordinary short numbers like "500" are never flagged.
+# Phone numbers: leading '+' with country-style grouping, a separated 3-3-4
+# group (US-style with at least one space or dash), a bare 11–13 digit run
+# (Nigerian mobiles are 11 digits), or an explicit Nigerian 0x mobile
+# (080/081/090/091) with optional separators.
 PHONE_PATTERNS = [
     re.compile(r'\+\d[\d\s\-()\.]{6,17}\d'),
-    re.compile(r'\b\d{3}[\s\-]?\d{3}[\s\-]?\d{4}\b'),
+    re.compile(r'\b\d{3}[\s\-]\d{3}[\s\-]\d{4}\b'),
     re.compile(r'\b\d{11,13}\b'),
+    re.compile(r'\b0[789][01]\d[\s\-]?\d{3}[\s\-]?\d{4}\b'),
 ]
 
 EMAIL_RE = re.compile(r'\b[\w.+-]+@[\w-]+\.[\w.-]+\b', re.IGNORECASE)
 
-URL_RE = re.compile(r'\b(?:https?://|www\.|wa\.me|t\.me)\S+', re.IGNORECASE)
+URL_RE = re.compile(
+    r'\b(?:https?://|www\.|wa\.me|t\.me|bit\.ly|tinyurl)\S+',
+    re.IGNORECASE,
+)
 
 SOCIAL_HANDLE_RE = re.compile(r'\b@[\w.]{3,30}\b')
 
@@ -36,6 +49,20 @@ SOCIAL_PLATFORM_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Spoken contact motifs: "call me", "my number", "your whatsapp", mail
+# domains spelled out, etc.
+CONTACT_PHRASES = [
+    'call me', 'text me', 'chat me up', 'dm me', 'pm me', 'inbox me',
+    'hmu', 'hit me up', 'add me on', 'look me up', 'add me', 'follow me',
+    'my number', 'my phone', 'my line', 'my pin', 'my snap', 'my ig',
+    'my instagram', 'my facebook', 'my whatsapp', 'my telegram',
+    'my handle', 'my username', 'whatsapp me', 'whatsapp number',
+    'your number', 'your phone', 'your whatsapp', 'your handle',
+    'give me your number', 'social media', 'socials',
+    'gmail', 'yahoo', 'hotmail', 'outlook', 'icloud', 'ymail', 'rocketmail',
+    'dot com', 'dotcom',
+]
+
 CONTACT_CODE = 'CONTACT_SHARING'
 CONTACT_MESSAGE = (
     'This message was not sent. DestinyPair keeps members safe: please don\'t '
@@ -43,17 +70,20 @@ CONTACT_MESSAGE = (
 )
 
 # ---------------------------------------------------------------------------
-# Category 2 — Sexual / explicit content
+# Category 2 — Sexual / nudity / explicit content
 # ---------------------------------------------------------------------------
 
-SEXUAL_TERMS = [
-    'sex', 'sext', 'fuck', 'porn', 'porno', 'nude', 'naked', 'nsfw', 'xxx',
+SEXUAL_FRAGMENTS = [
+    'sex', 'sexy', 'sexual', r'sext\w*', 'fuck', 'fvck', r'porn\w*',
+    'nude', 'nudes', 'nudity', 'naked', 'nsfw', 'xxx',
     'dick', 'cock', 'pussy', 'vagina', 'penis', 'boobs', 'tits', 'nipples',
-    'blowjob', 'bj ', 'handjob', 'sperm', 'cum', 'ejaculate', 'horny',
-    'masturbat', 'orgasm', 'busty', 'hookup', 'hook up', 'one night stand',
-    'sugar daddy', 'sugar baby', 'escort', 'prostitut', 'erotic', 'pornhub',
-    'onlyfans', 'roleplay', 'milf', 'horny', 'wet dream', 'fingering',
-    'yansh', 'nyash', 'kpomo', 'gbas', 'shayo',
+    'breasts', 'blowjob', 'blow job', 'handjob', 'sperm', 'cum',
+    r'ejaculat\w*', 'horny', r'masturbat\w*', 'orgasm', 'busty',
+    'hookup', 'hook up', 'one night stand', 'sugar daddy', 'sugar baby',
+    'escort', r'prostitut\w*', 'erotic', 'pornhub', 'onlyfans', 'milf',
+    'wet dream', 'fingering', 'yansh', 'nyash', 'kpomo', 'gbas', 'shayo',
+    'oral', 'anal', 'sex tape', 'sleep with', 'slept with', 'make love',
+    'intercourse', 'foreplay',
 ]
 
 SEXUAL_CODE = 'SEXUAL_CONTENT'
@@ -63,18 +93,30 @@ SEXUAL_MESSAGE = (
 )
 
 # ---------------------------------------------------------------------------
-# Category 3 — Money / business / transactions
+# Category 3 — Money / financial transactions
 # ---------------------------------------------------------------------------
 
-TRANSACTION_TERMS = [
-    'transfer', 'send me money', 'send money', 'wire', 'bank account',
-    'account number', 'account no', 'bank details', 'gtbank', 'access bank',
-    'zenith', 'first bank', 'uba ', 'kuda', 'opay', 'palmpay', 'flutterwave',
-    'paystack', 'monnify', 'paypal', 'venmo', 'bitcoin', 'crypto', 'ethereum',
-    'naira', 'dollar', 'payment', 'pay ', 'pay me', 'price', 'pricing',
-    'invest', 'investment', 'trade', 'forex', 'btc ', 'airtime', 'recharge',
-    'mtn momo', 'momodev', 'cash app', 'salary', 'business deal', 'fee ',
-    'wallet', 'withdraw', 'deposit', 'loan',
+# Bank/account-sensitive numbers: Nigerian NUBAN (exactly 10 digits) and card
+# numbers (13–19 digits, optionally separated by spaces or dashes).
+NUBAN_RE = re.compile(r'\b\d{10}\b')
+CARD_RE = re.compile(r'\b(?:\d[\s-]?){12,18}\d\b')
+NGN_AMOUNT_RE = re.compile(
+    r'\b(?:₦|NGN)\s*\d+(?:[.,]\d+)?\b'
+    r'|\b\d+(?:[.,]\d+)?\s*(?:naira|NGN)\b',
+    re.IGNORECASE,
+)
+
+MONEY_FRAGMENTS = [
+    r'transfer\w*', 'send me money', 'send money', 'send me airtime', 'wire',
+    'bank account', 'bank details', 'account number', 'account no',
+    'acct no', 'nuban', 'sort code',
+    'gtbank', 'access bank', 'zenith', 'first bank', 'kuda', 'opay',
+    'palmpay', 'flutterwave', 'paystack', 'monnify', 'paypal', 'venmo',
+    'bitcoin', 'crypto', 'ethereum', 'naira', 'dollar', 'payment', 'pay me',
+    'price', 'pricing', r'invest\w*', 'trade', 'forex', 'airtime',
+    'recharge card', 'mtn momo', 'momodev', 'cash app', 'salary',
+    'business deal', 'wallet', r'withdraw\w*', r'deposit\w*', 'loan',
+    r'lend\w*', r'borrow\w*', 'urgently need',
 ]
 
 TRANSACTION_CODE = 'TRANSACTION_OR_BUSINESS'
@@ -89,34 +131,84 @@ POLICY_MESSAGES = {
     TRANSACTION_CODE: TRANSACTION_MESSAGE,
 }
 
+MAX_MATCHES = 6
 
-def _contains_term(text, terms):
-    lowered = f' {text.lower()} '
-    return any(term in lowered for term in terms)
+
+def _build_terms_re(patterns):
+    return re.compile(r'\b(?:' + '|'.join(patterns) + r')\b', re.IGNORECASE)
+
+
+SEXUAL_RE = _build_terms_re(SEXUAL_FRAGMENTS)
+MONEY_RE = _build_terms_re(MONEY_FRAGMENTS)
+CONTACT_PHRASE_RE = _build_terms_re(CONTACT_PHRASES)
+
+
+def _first_match(regex, text):
+    m = regex.search(text)
+    return m.group(0).strip()[:100] if m else None
+
+
+def _collect(regex, text, limit=MAX_MATCHES):
+    found = []
+    for m in regex.finditer(text):
+        snippet = m.group(0).strip()
+        if snippet and snippet not in found:
+            found.append(snippet[:100])
+            if len(found) >= limit:
+                break
+    return found
 
 
 def check_message_policy(text):
     """Return ``None`` when the message is allowed, otherwise a dict with
-    ``category``, ``code`` and a friendly ``reason`` for the sender."""
+    ``category``, ``code``, a friendly ``reason`` and the ``matches`` that
+    triggered the block."""
     text = (text or '').strip()
     if not text:
         return None
 
+    matches = []
     for pattern in PHONE_PATTERNS:
-        if pattern.search(text):
-            return {'category': 'contacts', 'code': CONTACT_CODE, 'reason': CONTACT_MESSAGE}
+        snippet = _first_match(pattern, text)
+        if snippet:
+            matches.append(snippet)
+    for regex in (EMAIL_RE, URL_RE, SOCIAL_HANDLE_RE, SOCIAL_PLATFORM_RE):
+        snippet = _first_match(regex, text)
+        if snippet:
+            matches.append(snippet)
+    matches += _collect(CONTACT_PHRASE_RE, text)
 
-    if EMAIL_RE.search(text) or URL_RE.search(text) or SOCIAL_HANDLE_RE.search(text):
-        return {'category': 'contacts', 'code': CONTACT_CODE, 'reason': CONTACT_MESSAGE}
+    if matches:
+        return {
+            'category': 'contacts',
+            'code': CONTACT_CODE,
+            'reason': CONTACT_MESSAGE,
+            'matches': matches[:MAX_MATCHES],
+        }
 
-    if SOCIAL_PLATFORM_RE.search(text):
-        return {'category': 'contacts', 'code': CONTACT_CODE, 'reason': CONTACT_MESSAGE}
+    matches = _collect(SEXUAL_RE, text)
+    if matches:
+        return {
+            'category': 'sexual',
+            'code': SEXUAL_CODE,
+            'reason': SEXUAL_MESSAGE,
+            'matches': matches[:MAX_MATCHES],
+        }
 
-    if _contains_term(text, SEXUAL_TERMS):
-        return {'category': 'sexual', 'code': SEXUAL_CODE, 'reason': SEXUAL_MESSAGE}
+    matches = []
+    for regex in (NUBAN_RE, CARD_RE, NGN_AMOUNT_RE):
+        snippet = _first_match(regex, text)
+        if snippet:
+            matches.append(snippet)
+    matches += _collect(MONEY_RE, text)
 
-    if _contains_term(text, TRANSACTION_TERMS):
-        return {'category': 'financial', 'code': TRANSACTION_CODE, 'reason': TRANSACTION_MESSAGE}
+    if matches:
+        return {
+            'category': 'financial',
+            'code': TRANSACTION_CODE,
+            'reason': TRANSACTION_MESSAGE,
+            'matches': matches[:MAX_MATCHES],
+        }
 
     return None
 
