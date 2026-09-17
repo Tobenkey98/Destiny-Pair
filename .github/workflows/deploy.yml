@@ -25,8 +25,12 @@ jobs:
             # Navigate to the main project directory
             cd /var/www/destinypair
 
-            # Pull the newest code from GitHub
-            git pull origin main
+            # Fetch and hard-reset so a locally modified tree (e.g. the
+            # __pycache__/*.pyc files that Python rewrites on the server) can
+            # never abort the deploy again. Untracked files (Backend/.env,
+            # uploads, etc.) are untouched.
+            git fetch origin main
+            git reset --hard origin/main
             echo "Checked out: $(git rev-parse HEAD) (expected ${{ github.sha }})"
 
             # Build the static frontend files
@@ -48,6 +52,7 @@ jobs:
             cd ../Backend
             source ../venv/bin/activate
             python manage.py migrate
+            python manage.py seed_plans
             sudo systemctl restart gunicorn
             sudo systemctl restart daphne || echo "WARNING: daphne service not installed yet (live chat needs it)"
             echo "Deploy OK: $(git rev-parse HEAD)"
