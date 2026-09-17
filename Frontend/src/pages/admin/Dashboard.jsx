@@ -6,7 +6,7 @@ import {
   Users, Heart, UserCheck, Ban, Camera, CalendarCheck,
   TrendingUp, DollarSign, Shield, Clock, CheckCircle,
   Activity, ArrowUpRight, UserPlus, Sparkles,
-  AlertTriangle, XCircle, Star, Zap,
+  AlertTriangle, XCircle, Star, Zap, Mars, Venus,
 } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { cn } from "../../lib/utils";
@@ -311,6 +311,8 @@ export default function AdminDashboard() {
     const role = adminProfile?.role;
     if (role === "super_admin") return [
       { label: "Total Users", value: (analytics.total_users ?? 0).toLocaleString(), delta: analytics.new_users_30d ?? 0, deltaLabel: "this month", icon: Users },
+      { label: "Male Users", value: (analytics.male_users ?? 0).toLocaleString(), icon: Mars, hint: `${Math.round(((analytics.male_users ?? 0) / (analytics.total_users || 1)) * 100)}% of users` },
+      { label: "Female Users", value: (analytics.female_users ?? 0).toLocaleString(), icon: Venus, hint: `${Math.round(((analytics.female_users ?? 0) / (analytics.total_users || 1)) * 100)}% of users` },
       { label: "Active Users", value: (analytics.active_users ?? 0).toLocaleString(), icon: UserCheck, hint: `${analytics.verified_users ?? 0} verified` },
       { label: "Users Online", value: (dashboard?.users_online ?? 0).toLocaleString(), icon: Activity, hint: `~15 min active window` },
       { label: "Matches", value: (analytics.total_matches ?? 0).toLocaleString(), icon: Heart },

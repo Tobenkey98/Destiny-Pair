@@ -112,6 +112,17 @@ class Photo(models.Model):
     is_ai_generated = models.BooleanField(null=True, blank=True)
     ai_confidence = models.FloatField(null=True, blank=True)
     approved = models.BooleanField(default=False)
+    review_status = models.CharField(
+        max_length=10,
+        choices=[
+            ('pending', 'Pending'),
+            ('approved', 'Approved'),
+            ('rejected', 'Rejected'),
+        ],
+        default='pending',
+        db_index=True,
+        help_text='Explicit moderation outcome: pending review, approved, or rejected.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
-import { ShieldAlert, Check, X, RotateCcw, ImageIcon, Flag, Ban, Images, MessagesSquare } from "lucide-react";
+import { ShieldAlert, Check, X, RotateCcw, ImageIcon, Flag, Ban, Images, MessagesSquare, ImageOff } from "lucide-react";
 import { PageHeader } from "../../components/admin/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Badge } from "../../components/ui/badge";
@@ -10,6 +10,7 @@ import { api } from "../../lib/api";
 const TABS = [
   { key: "photos", label: "Photo Approvals", icon: ImageIcon },
   { key: "approved", label: "Approved Photos", icon: Images },
+  { key: "rejected", label: "Rejected Photos", icon: ImageOff },
   { key: "reports", label: "Member Reports", icon: Flag },
   { key: "blocked", label: "Blocked Messages", icon: MessagesSquare },
   { key: "bans", label: "Banned Users", icon: Ban },
@@ -22,7 +23,7 @@ const CATEGORY_VARIANT = {
 };
 
 export default function AdminModeration() {
-  const [data, setData] = useState({ pending_photos: [], approved_photos: [], reports: [], banned_users: [] });
+  const [data, setData] = useState({ pending_photos: [], approved_photos: [], rejected_photos: [], reports: [], banned_users: [] });
   const [blockLogs, setBlockLogs] = useState(null);
   const [tab, setTab] = useState("photos");
   const [loading, setLoading] = useState(true);
@@ -67,7 +68,7 @@ export default function AdminModeration() {
     }
   };
 
-  const { pending_photos: photos, approved_photos: approved, reports, banned_users: banned } = data;
+  const { pending_photos: photos, approved_photos: approved, rejected_photos: rejected, reports, banned_users: banned } = data;
 
   return (
     <div className="space-y-6">
@@ -84,6 +85,7 @@ export default function AdminModeration() {
           const count =
             t.key === "photos" ? photos.length :
             t.key === "approved" ? approved.length :
+            t.key === "rejected" ? rejected.length :
             t.key === "reports" ? reports.length :
             t.key === "blocked" ? (blockLogs?.total ?? 0) :
             banned.length;
@@ -162,6 +164,40 @@ export default function AdminModeration() {
                 <Card className="overflow-hidden">
                   <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden">
                     <img src={p.image} alt={`${p.user_name}'s photo`} className="h-full w-full object-cover" loading="lazy" />
+                  </div>
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-sm font-medium truncate">{p.user_name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{p.email}</p>
+                    <p className="text-[11px] text-muted-foreground/60">
+                      {p.is_primary ? "Primary • " : ""}{new Date(p.created_at).toLocaleDateString()}
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        )
+      ) : tab === "rejected" ? (
+        rejected.length === 0 ? (
+          <Card><CardContent className="py-16 text-center">
+            <ImageOff className="h-10 w-10 text-emerald/40 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No rejected photos yet.</p>
+          </CardContent></Card>
+        ) : (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            {rejected.map((p, i) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(i * 0.02, 0.4) }}
+              >
+                <Card className="overflow-hidden">
+                  <div className="aspect-square bg-muted flex items-center justify-center overflow-hidden relative">
+                    <img src={p.image} alt={`${p.user_name}'s photo`} className="h-full w-full object-cover opacity-60 grayscale-[30%]" loading="lazy" />
+                    <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-destructive/90 text-white text-[10px] font-bold flex items-center gap-1">
+                      <X className="h-3 w-3" /> Rejected
+                    </span>
                   </div>
                   <CardContent className="p-4 space-y-1">
                     <p className="text-sm font-medium truncate">{p.user_name}</p>

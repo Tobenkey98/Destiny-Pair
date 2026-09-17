@@ -244,6 +244,7 @@ class AdminUserPhotosView(APIView):
             'image': request.build_absolute_uri(p.image.url) if p.image else '',
             'is_primary': p.is_primary,
             'approved': p.approved,
+            'review_status': p.review_status,
             'created_at': p.created_at.isoformat(),
         } for p in Photo.objects.filter(user=user).order_by('-is_primary', '-created_at')]
 
@@ -276,7 +277,8 @@ class AdminPhotoApprovalView(APIView):
             return Response({'error': 'Photo not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         photo.approved = action == 'approve'
-        photo.save(update_fields=['approved'])
+        photo.review_status = 'approved' if action == 'approve' else 'rejected'
+        photo.save(update_fields=['approved', 'review_status'])
 
         AuditService.log(
             actor=request.user,
@@ -589,7 +591,7 @@ class AdminModerationView(APIView):
         from notifications.models import Report
 
         photos = (
-            Photo.objects.filter(approved=False)
+            Photo.objects.filter(review_status='pending')
             .select_related('user')
             .order_by('-created_at')[:50]
         )
@@ -629,7 +631,7 @@ class AdminModerationView(APIView):
         } for u in banned]
 
         approved_photos = (
-            Photo.objects.filter(approved=True)
+            Photo.objects.filter(review_status='approved')
             .select_related('user')
             .order_by('-created_at')[:100]
         )
@@ -643,6 +645,21 @@ class AdminModerationView(APIView):
             'created_at': p.created_at.isoformat(),
         } for p in approved_photos]
 
+        rejected_photos = (
+            Photo.objects.filter(review_status='rejected')
+            .select_related('user')
+            .order_by('-created_at')[:100]
+        )
+        rejected_data = [{
+            'id': p.id,
+            'user_id': p.user_id,
+            'user_name': p.user.get_full_name() or p.user.email,
+            'email': p.user.email,
+            'image': request.build_absolute_uri(p.image.url) if p.image else '',
+            'is_primary': p.is_primary,
+            'created_at': p.created_at.isoformat(),
+        } for p in rejected_photos]
+
         AuditService.log(
             actor=request.user,
             action="Viewed Moderation Queue",
@@ -654,6 +671,7 @@ class AdminModerationView(APIView):
         return Response({
             'pending_photos': photo_data,
             'approved_photos': approved_data,
+            'rejected_photos': rejected_data,
             'reports': report_data,
             'banned_users': banned_data,
         })
@@ -672,16 +690,30 @@ class AdminMatchListView(APIView):
 
         matches = (
             Match.objects.select_related('from_user', 'to_user')
-            .order_by('-created_at')[:200]
+            .order_by('-created_at')[:500]
         )
         match_data = [{
             'id': m.id,
             'status': m.status,
             'created_at': m.created_at.isoformat(),
+            'updated_at': m.updated_at.isoformat(),
             'from_user': m.from_user_id,
             'from_user_name': m.from_user.get_full_name() or m.from_user.email,
+            'from_user_email': m.from_user.email,
+            'from_user_gender': m.from_user.gender,
             'to_user': m.to_user_id,
             'to_user_name': m.to_user.get_full_name() or m.to_user.email,
+            'to_user_email': m.to_user.email,
+            'to_user_gender': m.to_user.gender,
+            'relation': (
+                'both liked' if (
+                    Match.objects.filter(
+                        from_user=m.to_user, to_user=m.from_user,
+                    ).exists()
+                ) else (
+                    'rejected' if m.status == 'rejected' else 'one-sided'
+                )
+            ),
         } for m in matches]
 
         status_counts = dict(
@@ -1395,7 +1427,7 @@ class AdminNotificationFeedView(APIView):
         # Pending photo approvals (all admins)
         try:
             from profiles.models import Photo
-            pending = Photo.objects.filter(approved=False, created_at__gte=seven_days_ago).order_by('-created_at')[:5]
+            pending = Photo.objects.filter(review_status='pending', created_at__gte=seven_days_ago).order_by('-created_at')[:5]
             for p in pending:
                 events.append({
                     'type': 'photo',

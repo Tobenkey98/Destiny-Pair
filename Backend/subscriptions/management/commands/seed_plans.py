@@ -16,9 +16,9 @@ def plan_defaults():
             price=0,
             billing_cycle='monthly',
             description=(
-                'The starting point: explore every profile, see who liked '
-                'you by name, and send 3 likes and 3 messages a day. '
-                'Subscribe for full access — unlimited chats, saves and more.'
+                'The starting point: explore every profile and send 5 likes '
+                'and 3 messages a day. Subscribe for full access — see who '
+                'liked you, unlimited chats, saves and more.'
             ),
             message_limit=3,
             message_reset_period='daily',
@@ -26,7 +26,7 @@ def plan_defaults():
             audio_minutes_limit=0,
             video_minutes_limit=0,
             profile_view_limit_daily=20,
-            like_limit_daily=3,
+            like_limit_daily=5,
             save_limit_daily=0,
             can_use_advanced_filters=False,
             can_see_likes=False,

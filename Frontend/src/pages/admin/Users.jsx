@@ -24,7 +24,6 @@ export default function AdminUsers() {
   const [detailUser, setDetailUser] = useState(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailPhotos, setDetailPhotos] = useState([]);
-  const [detailCover, setDetailCover] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
   const isModerator = hasRole('moderator');
@@ -58,7 +57,6 @@ export default function AdminUsers() {
   function openDetail(u) {
     setDetailUser(null);
     setDetailPhotos([]);
-    setDetailCover("");
     setDetailError("");
     setDetailOpen(true);
     setDetailLoading(true);
@@ -69,7 +67,6 @@ export default function AdminUsers() {
     api.adminUserPhotos(u.id)
       .then((data) => {
         setDetailPhotos(Array.isArray(data?.photos) ? data.photos : []);
-        setDetailCover(data?.cover_photo || "");
       })
       .catch(() => {});
   }
@@ -272,19 +269,35 @@ export default function AdminUsers() {
               className="w-full max-w-2xl max-h-[85vh] overflow-y-auto rounded-2xl border bg-card shadow-2xl p-6"
             >
               <div className="flex items-start justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarFallback className="bg-primary/10 text-primary">
-                      {detailUser
-                        ? (((detailUser.first_name?.[0] || "") + (detailUser.last_name?.[0] || "")).toUpperCase() || "U")
-                        : "U"}
-                    </AvatarFallback>
-                  </Avatar>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    <Avatar className="h-14 w-14 border-2 border-border">
+                      <AvatarFallback className="bg-primary/10 text-primary text-lg">
+                        {detailUser
+                          ? (((detailUser.first_name?.[0] || "") + (detailUser.last_name?.[0] || "")).toUpperCase() || "U")
+                          : "U"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className={`absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full ring-2 ring-card ${detailUser?.is_active && !detailUser?.is_banned ? "bg-emerald-500" : "bg-muted-foreground"}`} />
+                  </div>
                   <div>
-                    <h2 className="text-lg font-semibold">
+                    <h2 className="text-lg font-semibold leading-tight">
                       {detailUser ? `${detailUser.first_name || ""} ${detailUser.last_name || ""}`.trim() || "User" : "User details"}
                     </h2>
                     <p className="text-xs text-muted-foreground">{detailUser?.email || "Loading..."}</p>
+                    {detailUser && (
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                        {detailUser.gender && (
+                          <Badge variant="secondary" className="text-[10px] capitalize">{detailUser.gender}</Badge>
+                        )}
+                        <Badge variant={detailUser.is_banned ? "destructive" : detailUser.is_active ? "success" : "secondary"} className="text-[10px]">
+                          {detailUser.is_banned ? "Banned" : detailUser.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                        {detailUser.is_verified && (
+                          <Badge variant="outline" className="text-[10px] text-emerald-600 dark:text-emerald-400 border-emerald-500/30">Verified</Badge>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button onClick={() => setDetailOpen(false)} className="h-8 w-8 rounded-lg hover:bg-muted flex items-center justify-center">
@@ -304,31 +317,30 @@ export default function AdminUsers() {
 
               {detailUser && !detailLoading && (
                 <div className="space-y-6">
-                  <DetailSection title={`Photos (${detailPhotos.length})`}>
-                    {detailCover && (
-                      <div className="sm:col-span-2">
-                        <div className="text-[11px] text-muted-foreground mb-1.5">Cover photo</div>
-                        <img src={detailCover} alt="Cover" className="h-32 w-full object-cover rounded-xl border" />
-                      </div>
-                    )}
-                    {detailPhotos.length === 0 && !detailCover ? (
-                      <p className="sm:col-span-2 text-sm text-muted-foreground">No photos uploaded.</p>
-                    ) : (
-                      detailPhotos.map((p) => (
-                        <div key={p.id} className="relative">
-                          <img src={p.image} alt="User upload" className="h-36 w-full object-cover rounded-xl border" />
+                  <div>
+                    <h3 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-3">Profile photo</h3>
+                    {(() => {
+                      const primary = detailPhotos.find((p) => p.is_primary) || detailPhotos[0] || null;
+                      if (!primary) {
+                        return (
+                          <div className="h-56 w-full rounded-xl border border-dashed bg-muted/40 flex items-center justify-center text-sm text-muted-foreground">
+                            No profile photo uploaded.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="relative">
+                          <img src={primary.image} alt="Profile" className="h-64 w-full object-cover rounded-xl border" />
                           <div className="absolute top-2 left-2 flex gap-1.5">
-                            {p.is_primary && (
-                              <span className="px-2 py-0.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-[10px] font-bold">Primary</span>
-                            )}
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${p.approved ? "bg-emerald-500/90 text-white" : "bg-amber-500/90 text-white"}`}>
-                              {p.approved ? "Approved" : "Pending"}
+                            <span className="px-2 py-0.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-[10px] font-bold">Primary</span>
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/90 text-white">
+                              {primary.approved ? "Approved" : "Pending"}
                             </span>
                           </div>
                         </div>
-                      ))
-                    )}
-                  </DetailSection>
+                      );
+                    })()}
+                  </div>
                   <DetailSection title="Account">
                     <DetailRow label="Status" value={detailUser.is_banned ? "Banned" : detailUser.is_active ? "Active" : "Inactive"} />
                     <DetailRow label="Verified" value={detailUser.is_verified ? "Yes" : "No"} />

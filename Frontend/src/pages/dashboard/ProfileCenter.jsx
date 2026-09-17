@@ -560,11 +560,11 @@ export default function ProfileCenter() {
           animate={{ opacity: 1, y: 0 }}
         >
           <div className="rounded-[2.5rem] overflow-hidden">
-            <div ref={coverRef} className="relative w-full bg-gradient-to-br from-emerald/30 to-gold/20">
+            <div ref={coverRef} className="relative w-full aspect-[16/7] sm:aspect-[16/6] md:aspect-[16/5] bg-gradient-to-br from-emerald/30 to-gold/20">
               {coverPhoto ? (
-                <img src={coverPhoto} alt="Cover" className="block w-full h-auto max-h-[200px] sm:max-h-[320px] md:max-h-[420px] object-contain" onError={(e) => { e.target.style.display = 'none'; }} />
+                <img src={coverPhoto} alt="Cover" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
               ) : (
-                <div className="w-full h-[200px] sm:h-[320px] md:h-[420px] pattern-dots opacity-[0.08]" />
+                <div className="absolute inset-0 pattern-dots opacity-[0.08]" />
               )}
 
               {/* Cover upload / change button */}

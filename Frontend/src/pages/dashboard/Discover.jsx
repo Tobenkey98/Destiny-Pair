@@ -183,14 +183,14 @@ export default function Discover() {
       }
     } catch (err) {
       console.error("Like failed:", err);
-      if (err.data?.reason === "SUBSCRIPTION_REQUIRED") {
-        alert(
-          "Likes and matches require an active subscription on BOTH members. Subscribe to keep connecting."
-        );
-        navigate("/membership");
-      } else {
-        alert(err.data?.error || err.message || "Could not send your like. Please try again.");
+      const reason = err.data?.reason || err.data?.error;
+      let msg = err.data?.detail || err.data?.error || err.message || "Could not send your like. Please try again.";
+      if (reason === "DAILY_LIKE_LIMIT_REACHED") {
+        msg = "You have reached your daily like limit. Upgrade your plan for more likes."
+      } else if (reason === "PHOTOS_REQUIRED") {
+        msg = "Add a profile photo and a cover photo before liking anyone."
       }
+      alert(msg);
     }
   }
 

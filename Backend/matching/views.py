@@ -50,27 +50,9 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # STRICT subscription rule — no favoritism for male or female:
-        # a like request only takes effect once BOTH members hold an active
-        # paid subscription. Nothing (no activity, no email, no chat) is
-        # recorded until then.
-        if new_status == 'liked':
-            from subscriptions.services import plan_service
-            if (
-                not plan_service.is_paid_subscriber(request.user)
-                or not plan_service.is_paid_subscriber(to_user)
-            ):
-                return Response(
-                    {
-                        'error': (
-                            'Likes and matches require an active subscription '
-                            'on both members. Subscribe to keep connecting.'
-                        ),
-                        'reason': 'SUBSCRIPTION_REQUIRED',
-                    },
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-
+        # Likes are open to every member — anyone can send up to their
+        # plan's daily like limit (Free: 5/day). Subscriptions gate seeing
+        # who liked you and responding, not sending a like.
         existing = Match.objects.filter(from_user=request.user, to_user=to_user).first()
         if existing and existing.status == 'matched':
             out = MatchSerializer(existing, context={'request': request}).data
@@ -143,20 +125,14 @@ class MatchListCreateView(generics.ListCreateAPIView):
             if not conv:
                 from subscriptions.services import usage_service
                 decision = usage_service.can_start_conversation(request.user)
-                if not decision['allowed']:
-                    return Response(
-                        {
-                            'error': decision['reason'],
-                            'detail': 'You have reached your active conversation limit.',
-                        },
-                        status=status.HTTP_403_FORBIDDEN,
-                    )
-                conv = Conversation.objects.create()
-                conv.participants.add(match.from_user, match.to_user)
-                usage_service.sync_active_conversations(request.user)
-            conv_id = conv.id
+                if decision['allowed']:
+                    conv = Conversation.objects.create()
+                    conv.participants.add(match.from_user, match.to_user)
+                    usage_service.sync_active_conversations(request.user)
 
-            if reverse:
+            if conv:
+                conv_id = conv.id
+
                 match.status = 'matched'
                 match.save(update_fields=['status'])
                 reverse.status = 'matched'
@@ -189,9 +165,9 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 # Plus a dedicated acceptance email to the first liker with a
                 # direct link into the new conversation.
                 send_request_accepted_email(match.to_user, request.user, conv_id)
-            else:
-                # Unreachable: the branch above guarantees a liked reverse row.
-                pass
+            # else: both liked but the sender cannot open a conversation yet
+            # (Free plan has a 0 active-conversation limit). Leave both rows
+            # as like requests — the recipient can accept once subscribed.
 
         if new_status == 'liked' and not (reverse and reverse.status == 'liked'):
             # One-sided like = a like request. Notify them by activity feed
@@ -251,19 +227,18 @@ class MatchUpdateView(generics.UpdateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # STRICT subscription rule: answering a like also needs BOTH sides
-        # subscribed — same gate for male and female accounts.
+        # Seeing who liked you and responding is a subscribed feature. Free
+        # members can send likes but cannot view or accept a like request
+        # until they upgrade (matching/chat stays a paid feature).
         if new_status == 'matched':
-            from subscriptions.services import plan_service
-            if (
-                not plan_service.is_paid_subscriber(request.user)
-                or not plan_service.is_paid_subscriber(match.from_user)
-            ):
+            from subscriptions.services import usage_service
+            decision = usage_service.can_see_likes(request.user)
+            if not decision['allowed']:
                 return Response(
                     {
                         'error': (
-                            'Both members must have an active subscription '
-                            'to match and chat. Subscribe to continue.'
+                            'Subscribe to see who liked you and respond to '
+                            'like requests. Upgrade to keep connecting.'
                         ),
                         'reason': 'SUBSCRIPTION_REQUIRED',
                     },

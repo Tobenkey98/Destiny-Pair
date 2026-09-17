@@ -126,7 +126,7 @@ class DashboardService:
 
         try:
             from profiles.models import Photo
-            pending_photos = Photo.objects.filter(approved=False).count()
+            pending_photos = Photo.objects.filter(review_status='pending').count()
         except Exception:
             pass
 
@@ -136,6 +136,14 @@ class DashboardService:
             total_reports = Report.objects.count()
         except Exception:
             pass
+
+        male_users = 0
+        female_users = 0
+        for gender_text, count in gender_breakdown.items():
+            if (gender_text or '').strip().lower() == 'male':
+                male_users = count
+            elif (gender_text or '').strip().lower() == 'female':
+                female_users = count
 
         return {
             'role': 'super_admin',
@@ -147,6 +155,8 @@ class DashboardService:
             },
             'analytics': {
                 'total_users': total_users,
+                'male_users': male_users,
+                'female_users': female_users,
                 'active_users': active_users,
                 'verified_users': verified_users,
                 'banned_users': banned_users,
@@ -230,7 +240,7 @@ class DashboardService:
 
         try:
             from profiles.models import Photo
-            pending_approvals = Photo.objects.filter(approved=False).count()
+            pending_approvals = Photo.objects.filter(review_status='pending').count()
         except Exception:
             pass
 
