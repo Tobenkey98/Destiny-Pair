@@ -1,4 +1,5 @@
 from django.contrib.auth import get_user_model
+from django.conf import settings
 from django.db.models import Count, Q, Sum
 from django.utils import timezone
 from datetime import timedelta
@@ -145,6 +146,26 @@ class DashboardService:
             elif (gender_text or '').strip().lower() == 'female':
                 female_users = count
 
+        declared = male_users + female_users
+        undeclared_gender_users = max(active_users - declared, 0)
+
+        payment_gateway = {
+            'mode': (
+                'sandbox'
+                if getattr(settings, 'FLUTTERWAVE_SANDBOX', True)
+                else 'live'
+            ),
+            'key_type': (
+                'test'
+                if 'test' in (settings.FLUTTERWAVE_PUBLIC_KEY or '').lower()
+                else 'live'
+            ),
+            'configured': bool(
+                getattr(settings, 'FLUTTERWAVE_CLIENT_ID', '')
+                and getattr(settings, 'FLUTTERWAVE_CLIENT_SECRET', '')
+            ),
+        }
+
         return {
             'role': 'super_admin',
             'title': 'Platform Administrator Dashboard',
@@ -157,6 +178,8 @@ class DashboardService:
                 'total_users': total_users,
                 'male_users': male_users,
                 'female_users': female_users,
+                'undeclared_gender_users': undeclared_gender_users,
+                'payment_gateway': payment_gateway,
                 'active_users': active_users,
                 'verified_users': verified_users,
                 'banned_users': banned_users,

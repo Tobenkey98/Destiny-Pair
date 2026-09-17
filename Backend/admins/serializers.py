@@ -52,6 +52,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'is_verified', 'is_active', 'is_banned',
             'is_profile_completed', 'is_staff', 'is_superuser',
             'date_joined', 'last_login',
+            'last_login_ip', 'last_device', 'last_browser',
         ]
         read_only_fields = ['id', 'date_joined', 'last_login']
 

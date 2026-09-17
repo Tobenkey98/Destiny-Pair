@@ -59,6 +59,43 @@ def _too_many_attempts(key, limit, ttl=600):
     return False
 
 
+def _parse_user_agent(ua):
+    """Derive a coarse device + browser label from a User-Agent string."""
+    ua = (ua or '').lower()
+    if 'mobile' in ua or 'android' in ua or 'iphone' in ua:
+        device = 'Mobile'
+    elif 'ipad' in ua or 'tablet' in ua:
+        device = 'Tablet'
+    else:
+        device = 'Desktop'
+    for name, needle in [
+        ('Chrome', 'chrome'),
+        ('Edge', 'edg'),
+        ('Firefox', 'firefox'),
+        ('Safari', 'safari'),
+        ('Opera', 'opr'),
+        ('Samsung Internet', 'samsung'),
+        ('Instagram', 'instagram'),
+    ]:
+        if needle in ua:
+            return device, name
+    return device, 'Other'
+
+
+def _record_login_info(user, request):
+    """Persist IP + device/browser for the latest sign-in."""
+    user.last_login = timezone.now()
+    user.last_login_ip = client_ip(request) or None
+    user.last_login_ua = request.META.get('HTTP_USER_AGENT', '')[:2000]
+    device, browser = _parse_user_agent(user.last_login_ua)
+    user.last_device = device
+    user.last_browser = browser
+    user.save(update_fields=[
+        'last_login', 'last_login_ip', 'last_login_ua',
+        'last_device', 'last_browser',
+    ])
+
+
 def send_verification_email(user):
     code = generate_code()
     user.verification_code = code
@@ -166,8 +203,7 @@ class LoginView(APIView):
                 'email': user.email,
             }, status=status.HTTP_403_FORBIDDEN)
 
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
+        _record_login_info(user, request)
         tokens = get_tokens_for_user(user)
         try:
             from accounts.services.engagement import maybe_send_engagement_nudges
@@ -262,8 +298,7 @@ class SocialAuthView(APIView):
             )
             created = True
 
-        user.last_login = timezone.now()
-        user.save(update_fields=['last_login'])
+        _record_login_info(user, request)
         tokens = get_tokens_for_user(user)
         try:
             from accounts.services.engagement import maybe_send_engagement_nudges

@@ -736,6 +736,142 @@ class AdminMatchListView(APIView):
         })
 
 
+def _admin_participant_dict(conversation, photo_map):
+    return [{
+        'id': u.id,
+        'name': u.get_full_name() or u.email,
+        'email': u.email,
+        'photo': photo_map.get(u.id),
+    } for u in conversation.participants.all()]
+
+
+def _admin_photo_map(user_ids, request):
+    from profiles.models import Photo
+    photo_map = {}
+    if not user_ids:
+        return photo_map
+    photos = (
+        Photo.objects.filter(user_id__in=user_ids, review_status='approved')
+        .order_by('-is_primary', 'id')
+    )
+    for p in photos:
+        if p.user_id not in photo_map:
+            photo_map[p.user_id] = request.build_absolute_uri(p.image.url)
+    return photo_map
+
+
+class AdminConversationListView(APIView):
+    """GET /api/admin/conversations/ — every user-to-user conversation with a
+    message preview and participant details, newest activity first."""
+
+    permission_classes = [IsAuthenticatedAdmin]
+
+    def get(self, request):
+        from django.db.models import Prefetch
+        from chat.models import Conversation, Message
+
+        conversations = (
+            Conversation.objects
+            .prefetch_related('participants', Prefetch(
+                'messages',
+                queryset=Message.objects.order_by('created_at'),
+            ))
+            .order_by('-updated_at')[:300]
+        )
+
+        participant_ids = set()
+        for c in conversations:
+            participant_ids.update(p.id for p in c.participants.all())
+        photo_map = _admin_photo_map(participant_ids, request)
+
+        data = []
+        for c in conversations:
+            msgs = list(c.messages.all())
+            last = msgs[-1] if msgs else None
+            data.append({
+                'id': c.id,
+                'created_at': c.created_at.isoformat(),
+                'updated_at': c.updated_at.isoformat(),
+                'participants': _admin_participant_dict(c, photo_map),
+                'message_count': len(msgs),
+                'last_message': {
+                    'id': last.id,
+                    'sender_id': last.sender_id,
+                    'sender_name': last.sender.get_full_name() or last.sender.email,
+                    'text': last.message,
+                    'has_audio': bool(last.audio),
+                    'is_read': last.is_read,
+                    'created_at': last.created_at.isoformat(),
+                } if last else None,
+            })
+
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Admin Conversations",
+            action_type="read",
+            target_model="Conversation",
+            request=request,
+        )
+
+        return Response({
+            'conversations': data,
+            'total': Conversation.objects.count(),
+        })
+
+
+class AdminConversationMessagesView(APIView):
+    """GET /api/admin/conversations/<id>/messages/ — the full message thread
+    of a conversation (for moderation / support review)."""
+
+    permission_classes = [IsAuthenticatedAdmin]
+
+    def get(self, request, conversation_id):
+        from chat.models import Conversation, Message
+
+        conversation = Conversation.objects.filter(id=conversation_id).first()
+        if conversation is None:
+            return Response(
+                {'error': 'Conversation not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        photo_map = _admin_photo_map(
+            set(conversation.participants.values_list('id', flat=True)),
+            request,
+        )
+        messages = list(
+            Message.objects.filter(conversation=conversation)
+            .select_related('sender').order_by('created_at')[:500]
+        )
+        message_data = [{
+            'id': m.id,
+            'sender_id': m.sender_id,
+            'sender_name': m.sender.get_full_name() or m.sender.email,
+            'text': m.message,
+            'has_audio': bool(m.audio),
+            'audio': (request.build_absolute_uri(m.audio.url)
+                      if m.audio else None),
+            'is_read': m.is_read,
+            'created_at': m.created_at.isoformat(),
+        } for m in messages]
+
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Admin Conversation Messages",
+            action_type="read",
+            target_model="Conversation",
+            target_id=str(conversation_id),
+            request=request,
+        )
+
+        return Response({
+            'conversation_id': conversation.id,
+            'participants': _admin_participant_dict(conversation, photo_map),
+            'messages': message_data,
+            'total': len(message_data),
+        })
+
+
 class AdminRoleListView(APIView):
     permission_classes = [IsSuperAdmin]
 

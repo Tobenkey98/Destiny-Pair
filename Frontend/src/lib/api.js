@@ -281,6 +281,13 @@ export const api = {
   adminMatches() {
     return request('/admin/matches/', { method: 'GET' });
   },
+  adminConversations(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/admin/conversations/${qs ? '?' + qs : ''}`, { method: 'GET' });
+  },
+  adminConversationMessages(conversationId) {
+    return request(`/admin/conversations/${conversationId}/messages/`, { method: 'GET' });
+  },
   adminCounsellingSessions() {
     return request('/admin/counselling/', { method: 'GET' });
   },

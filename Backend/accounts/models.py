@@ -59,6 +59,12 @@ class User(AbstractUser):
     # change or an account is deactivated (defence against stale tokens).
     security_stamp = models.CharField(max_length=64, blank=True, default='')
 
+    # Last-sign-in device/browser fingerprint, captured for admin review.
+    last_login_ip = models.GenericIPAddressField(null=True, blank=True)
+    last_login_ua = models.TextField(blank=True, default='')
+    last_device = models.CharField(max_length=30, blank=True, default='')
+    last_browser = models.CharField(max_length=60, blank=True, default='')
+
     phone = models.CharField(max_length=20, blank=True)
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=20, blank=True)

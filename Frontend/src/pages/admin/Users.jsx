@@ -347,6 +347,9 @@ export default function AdminUsers() {
                     <DetailRow label="Profile completed" value={detailUser.is_profile_completed ? "Yes" : "No"} />
                     <DetailRow label="Joined" value={detailUser.date_joined ? new Date(detailUser.date_joined).toLocaleString() : "—"} />
                     <DetailRow label="Last login" value={detailUser.last_login ? new Date(detailUser.last_login).toLocaleString() : "—"} />
+                    <DetailRow label="Device" value={detailUser.last_device || "—"} />
+                    <DetailRow label="Browser" value={detailUser.last_browser || "—"} />
+                    <DetailRow label="Last login IP" value={detailUser.last_login_ip || "—"} />
                   </DetailSection>
                   <DetailSection title="Contact & Background">
                     <DetailRow label="Phone" value={detailUser.phone || "—"} />

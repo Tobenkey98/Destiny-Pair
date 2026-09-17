@@ -7,6 +7,7 @@ import {
   TrendingUp, DollarSign, Shield, Clock, CheckCircle,
   Activity, ArrowUpRight, UserPlus, Sparkles,
   AlertTriangle, XCircle, Star, Zap, Mars, Venus,
+  CreditCard, UserX,
 } from "lucide-react";
 import { useAdmin } from "../../context/AdminContext";
 import { cn } from "../../lib/utils";
@@ -313,11 +314,17 @@ export default function AdminDashboard() {
       { label: "Total Users", value: (analytics.total_users ?? 0).toLocaleString(), delta: analytics.new_users_30d ?? 0, deltaLabel: "this month", icon: Users },
       { label: "Male Users", value: (analytics.male_users ?? 0).toLocaleString(), icon: Mars, hint: `${Math.round(((analytics.male_users ?? 0) / (analytics.total_users || 1)) * 100)}% of users` },
       { label: "Female Users", value: (analytics.female_users ?? 0).toLocaleString(), icon: Venus, hint: `${Math.round(((analytics.female_users ?? 0) / (analytics.total_users || 1)) * 100)}% of users` },
+      { label: "No Gender Set", value: (analytics.undeclared_gender_users ?? 0).toLocaleString(), icon: UserX, hint: "profiles missing gender — invisible in Discover" },
       { label: "Active Users", value: (analytics.active_users ?? 0).toLocaleString(), icon: UserCheck, hint: `${analytics.verified_users ?? 0} verified` },
       { label: "Users Online", value: (dashboard?.users_online ?? 0).toLocaleString(), icon: Activity, hint: `~15 min active window` },
       { label: "Matches", value: (analytics.total_matches ?? 0).toLocaleString(), icon: Heart },
       { label: "Admins", value: (dashboard?.admin_count ?? 0).toLocaleString(), icon: Shield, hint: `${dashboard?.admins_online ?? 0} online now` },
       { label: "Revenue (30d)", value: analytics.total_revenue_30d != null ? `₦${Number(analytics.total_revenue_30d).toLocaleString()}` : "₦0", icon: DollarSign, hint: `₦${Number(analytics.total_revenue_all || 0).toLocaleString()} lifetime` },
+      { label: "Payment Gateway", value: analytics.payment_gateway?.mode === "live" ? "Live" : "Sandbox", icon: CreditCard, hint: analytics.payment_gateway
+          ? analytics.payment_gateway.configured
+            ? `${analytics.payment_gateway.key_type} API key configured`
+            : "API keys not configured"
+          : "unknown" },
       { label: "Pending Photos", value: analytics.pending_photo_approvals ?? 0, icon: Camera },
       { label: "Counselling", value: analytics.total_counselling_sessions ?? 0, icon: CalendarCheck },
       { label: "Banned Users", value: analytics.banned_users ?? 0, icon: Ban, hint: `${((analytics.banned_users / (analytics.total_users || 1)) * 100).toFixed(1)}% of users` },
