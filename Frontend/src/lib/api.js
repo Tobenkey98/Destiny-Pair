@@ -417,4 +417,70 @@ export const api = {
   adminRejectPendingDenomination(id) {
     return request(`/admin/pending-denominations/${id}/reject/`, { method: 'POST' })
   },
+  adminAnalytics() {
+    return request('/admin/analytics/', { method: 'GET' })
+  },
+  adminIntegrations() {
+    return request('/admin/integrations/', { method: 'GET' })
+  },
+  adminUpdateIntegrations(payload) {
+    return request('/admin/integrations/', { method: 'POST', body: JSON.stringify(payload) })
+  },
+  adminTestFlutterwave() {
+    return request('/admin/integrations/test/flutterwave/', { method: 'POST' })
+  },
+  adminSeo() {
+    return request('/admin/seo/', { method: 'GET' })
+  },
+  adminUpdateSeo(payload) {
+    return request('/admin/seo/', { method: 'PUT', body: JSON.stringify(payload) })
+  },
+  adminLogs(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return request(`/admin/logs/${qs ? '?' + qs : ''}`, { method: 'GET' });
+  },
+  adminNotificationUnreadCount() {
+    return request('/admin/notifications/unread-count/', { method: 'GET' });
+  },
+  adminMarkAllNotificationsRead() {
+    return request('/admin/notifications/read-all/', { method: 'POST' });
+  },
+  async adminContent() {
+    const data = await request('/admin/content/', { method: 'GET' });
+    return Array.isArray(data) ? data : (data?.results || []);
+  },
+  adminCreateContent(formData) {
+    const token = getAdminAccessToken();
+    return fetch('/api/admin/content/create/', {
+      method: 'POST',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (res) => {
+      const data = await parseJsonSafe(res);
+      if (!res.ok) throw uploadError(res, data, 'Content save failed');
+      return data;
+    });
+  },
+  adminUpdateContent(id, formData) {
+    const token = getAdminAccessToken();
+    return fetch(`/api/admin/content/${id}/`, {
+      method: 'PATCH',
+      headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      body: formData,
+    }).then(async (res) => {
+      const data = await parseJsonSafe(res);
+      if (!res.ok) throw uploadError(res, data, 'Content save failed');
+      return data;
+    });
+  },
+  adminDeleteContent(id) {
+    return request(`/admin/content/${id}/`, { method: 'DELETE' });
+  },
+  publicSeo() {
+    return request('/seo/', { method: 'GET' });
+  },
+  publicContent(category = '') {
+    const qs = category ? `?category=${encodeURIComponent(category)}` : '';
+    return request(`/content/${qs}`, { method: 'GET' });
+  },
 };

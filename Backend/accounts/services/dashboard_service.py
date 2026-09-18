@@ -7,6 +7,31 @@ from datetime import timedelta
 User = get_user_model()
 
 
+def _payment_gateway_status():
+    from admins.services.integration_service import get_value
+    sandbox = get_value('FLUTTERWAVE_SANDBOX', '')
+    if sandbox == '':
+        sandbox_value = getattr(settings, 'FLUTTERWAVE_SANDBOX', True)
+    else:
+        sandbox_value = str(sandbox).strip().lower() in ('1', 'true', 'yes', 'on')
+    client_id = get_value('FLUTTERWAVE_CLIENT_ID', None) or getattr(settings, 'FLUTTERWAVE_CLIENT_ID', '')
+    client_secret = get_value('FLUTTERWAVE_CLIENT_SECRET', None) or getattr(settings, 'FLUTTERWAVE_CLIENT_SECRET', '')
+    public_key = get_value('FLUTTERWAVE_PUBLIC_KEY', None) or getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', '')
+    return {
+        'mode': 'sandbox' if sandbox_value else 'live',
+        'key_type': 'test' if 'test' in (public_key or '').lower() else 'live',
+        'configured': bool(client_id and client_secret),
+    }
+
+
+def _unread_notification_count(admin_user):
+    try:
+        from admins.models import AdminNotification
+        return AdminNotification.objects.filter(recipient=admin_user, is_read=False).count()
+    except Exception:
+        return 0
+
+
 class DashboardService:
 
     @staticmethod
@@ -26,7 +51,7 @@ class DashboardService:
         if handler is None:
             return {'error': f'Unknown role: {role}'}
 
-        return handler()
+        return handler(user)
 
     @staticmethod
     def _recent_users(limit=10):
@@ -51,7 +76,7 @@ class DashboardService:
         return [{'date': str(d), 'count': lookup.get(str(d), 0)} for d in dates]
 
     @staticmethod
-    def _super_admin_dashboard():
+    def _super_admin_dashboard(user):
         today = timezone.now()
         thirty_days_ago = today - timedelta(days=30)
 
@@ -149,22 +174,7 @@ class DashboardService:
         declared = male_users + female_users
         undeclared_gender_users = max(active_users - declared, 0)
 
-        payment_gateway = {
-            'mode': (
-                'sandbox'
-                if getattr(settings, 'FLUTTERWAVE_SANDBOX', True)
-                else 'live'
-            ),
-            'key_type': (
-                'test'
-                if 'test' in (settings.FLUTTERWAVE_PUBLIC_KEY or '').lower()
-                else 'live'
-            ),
-            'configured': bool(
-                getattr(settings, 'FLUTTERWAVE_CLIENT_ID', '')
-                and getattr(settings, 'FLUTTERWAVE_CLIENT_SECRET', '')
-            ),
-        }
+        payment_gateway = _payment_gateway_status()
 
         return {
             'role': 'super_admin',
@@ -173,6 +183,7 @@ class DashboardService:
                 'matches': total_matches,
                 'moderation': pending_photos + total_reports,
                 'reports': total_reports,
+                'notifications': _unread_notification_count(user),
             },
             'analytics': {
                 'total_users': total_users,
@@ -208,7 +219,7 @@ class DashboardService:
         }
 
     @staticmethod
-    def _operations_dashboard():
+    def _operations_dashboard(user):
         total_users = User.objects.exclude(admin_profile__isnull=False).count()
         active_subscriptions = 0
         recent_payments_count = 0
@@ -240,7 +251,10 @@ class DashboardService:
         return {
             'role': 'operations_admin',
             'title': 'Operations Dashboard',
-            'counts': {'matches': total_matches},
+            'counts': {
+                'matches': total_matches,
+                'notifications': _unread_notification_count(user),
+            },
             'analytics': {
                 'total_users': total_users,
                 'active_subscriptions': active_subscriptions,
@@ -255,7 +269,7 @@ class DashboardService:
         }
 
     @staticmethod
-    def _moderator_dashboard():
+    def _moderator_dashboard(user):
         pending_approvals = 0
         total_reports = 0
         blocked_users = User.objects.filter(is_banned=True).count()
@@ -293,7 +307,7 @@ class DashboardService:
         }
 
     @staticmethod
-    def _counsellor_dashboard():
+    def _counsellor_dashboard(user):
         total_sessions = 0
         completed_sessions = 0
         pending_requests = 0

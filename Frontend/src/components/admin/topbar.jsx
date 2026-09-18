@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAdmin } from "../../context/AdminContext";
 import { useTheme } from "../ThemeProvider";
 import { cn } from "../../lib/utils";
+import { api } from "../../lib/api";
 import {
   Menu, Bell, ChevronDown, LogOut, Settings,
   Plus, Users, Heart, MessageSquare, CalendarHeart, Shield,
@@ -21,10 +22,22 @@ export function AdminTopbar({ onMobileMenu }) {
   const { theme, toggle } = useTheme();
   const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [dateStr, setDateStr] = useState("");
+  const [unread, setUnread] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
     setDateStr(new Date().toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }));
+  }, []);
+
+  useEffect(() => {
+    function loadUnread() {
+      api.adminNotificationUnreadCount()
+        .then((d) => setUnread(Number(d?.unread_count) || 0))
+        .catch(() => {});
+    }
+    loadUnread();
+    const interval = setInterval(loadUnread, 30000);
+    return () => clearInterval(interval);
   }, []);
 
   const quickActions = [
@@ -110,8 +123,14 @@ export function AdminTopbar({ onMobileMenu }) {
           <button
             onClick={() => navigate("/admin/notifications")}
             className="relative h-9 w-9 rounded-lg hover:bg-accent flex items-center justify-center transition"
+            aria-label="Notifications"
           >
             <Bell className="h-4 w-4" />
+            {unread > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 rounded-full bg-destructive text-destructive-foreground text-[9px] font-bold flex items-center justify-center px-1 border-2 border-background">
+                {unread > 99 ? "99+" : unread}
+              </span>
+            )}
           </button>
 
           <DropdownMenu>

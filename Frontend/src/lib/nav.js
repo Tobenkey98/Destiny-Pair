@@ -17,7 +17,7 @@ export const NAV = [
   { label: "Reports", to: "/admin/reports", icon: FileBarChart2, group: "Operations", roles: ["super_admin", "operations_admin", "moderator"] },
   { label: "Bot Reports", to: "/admin/bot-reports", icon: Bot, group: "Operations", roles: ["super_admin", "operations_admin"] },
   { label: "Moderation", to: "/admin/moderation", icon: ShieldAlert, group: "Operations", badgeKey: "moderation", roles: ["super_admin", "moderator"] },
-  { label: "Notifications", to: "/admin/notifications", icon: Bell, group: "Operations", roles: ["super_admin", "operations_admin"] },
+  { label: "Notifications", to: "/admin/notifications", icon: Bell, group: "Operations", badgeKey: "notifications", roles: ["super_admin", "operations_admin"] },
   { label: "Denominations", to: "/admin/denominations", icon: Church, group: "Operations", roles: ["super_admin", "operations_admin"] },
   { label: "Pending Denominations", to: "/admin/pending-denominations", icon: ListChecks, group: "Operations", roles: ["super_admin", "operations_admin"] },
   { label: "Testimonials", to: "/admin/testimonials", icon: Quote, group: "Operations", roles: ["super_admin", "operations_admin"] },

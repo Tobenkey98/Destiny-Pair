@@ -1,11 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Mosaic } from "react-loading-indicators";
-import { Bell, UserPlus, Heart, CalendarHeart, Camera, ArrowRight, RefreshCw, LogIn, Shield, ShieldCheck } from "lucide-react";
+import { Bell, UserPlus, Heart, CalendarHeart, Camera, ArrowRight, RefreshCw, LogIn, Shield, ShieldCheck, CheckCheck } from "lucide-react";
 import { api } from "../../lib/api";
 import { cn } from "../../lib/utils";
 import { PageHeader } from "../../components/admin/page-header";
+import { useAdmin } from "../../context/AdminContext";
 
 function timeAgo(dateStr) {
   if (!dateStr) return "";
@@ -33,17 +34,33 @@ export default function Notifications() {
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [unread, setUnread] = useState(0);
   const [error, setError] = useState(null);
+  const marked = useRef(false);
   const navigate = useNavigate();
+  const { refreshDashboard } = useAdmin();
 
-  function fetchEvents() {
+  const fetchEvents = useCallback(() => {
     api.adminNotificationFeed()
-      .then(data => setEvents(data.events || []))
+      .then(data => {
+        setEvents(data.events || []);
+        setUnread(Number(data.unread_count) || 0);
+      })
       .catch(err => setError(err.message))
       .finally(() => { setLoading(false); setRefreshing(false); });
-  }
+  }, []);
 
-  useEffect(() => { fetchEvents(); }, []);
+  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+
+  // Opening the page marks everything as read: the badge drops to 0 and the
+  // sidebar count refreshes.
+  useEffect(() => {
+    if (loading || marked.current) return;
+    marked.current = true;
+    api.adminMarkAllNotificationsRead()
+      .then(() => { setUnread(0); refreshDashboard(); })
+      .catch(() => {});
+  }, [loading, refreshDashboard]);
 
   function handleRefresh() {
     setRefreshing(true);
@@ -62,12 +79,25 @@ export default function Notifications() {
     <div className="space-y-6">
       <PageHeader
         title="Notifications"
-        description="Recent platform activity"
+        description={unread > 0 ? `You have ${unread} unread notification${unread === 1 ? "" : "s"}` : "Recent platform activity"}
         actions={
-          <button onClick={handleRefresh} disabled={refreshing} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-accent transition disabled:opacity-50">
-            <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
-            Refresh
-          </button>
+          <div className="flex items-center gap-2">
+            <span className={cn(
+              "inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border text-sm font-medium",
+              unread > 0 ? "bg-primary/10 text-primary border-primary/25" : "bg-muted text-muted-foreground border-border"
+            )}>
+              <Bell className="h-4 w-4" />
+              {unread}
+            </span>
+            <button onClick={handleRefresh} disabled={refreshing} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-accent transition disabled:opacity-50">
+              <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+              Refresh
+            </button>
+            <button onClick={() => { marked.current = true; setUnread(0); api.adminMarkAllNotificationsRead().then(refreshDashboard).catch(() => {}); }} disabled={unread === 0} className="inline-flex items-center gap-2 h-9 px-4 rounded-lg border border-border text-sm font-medium hover:bg-accent transition disabled:opacity-50 disabled:pointer-events-none">
+              <CheckCheck className="h-4 w-4" />
+              Mark all read
+            </button>
+          </div>
         }
       />
 

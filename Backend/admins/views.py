@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 from rest_framework import status, permissions, generics
 from rest_framework.response import Response
@@ -18,7 +19,7 @@ from accounts.permissions import (
     IsSuperAdminOrCounsellor, IsAuthenticatedAdmin,
 )
 from accounts.views import get_tokens_for_user
-from .models import AdminProfile, AdminInvitation
+from .models import AdminProfile, AdminInvitation, ContentItem
 from .serializers import (
     UserListSerializer, UserDetailSerializer,
     AdminProfileSerializer, AdminInvitationSerializer,
@@ -1305,8 +1306,17 @@ class AdminAuditLogView(ListAPIView):
 
         limit = int(request.query_params.get('limit', 50))
         offset = int(request.query_params.get('offset', 0))
+        search = (request.query_params.get('search', '') or '').strip()
+        action_type = (request.query_params.get('action_type', '') or '').strip()
 
         logs = AuditLog.objects.select_related('actor').all().order_by('-created_at')
+        if search:
+            logs = logs.filter(
+                Q(action__icontains=search) | Q(target_model__icontains=search) |
+                Q(target_repr__icontains=search) | Q(actor__email__icontains=search)
+            )
+        if action_type:
+            logs = logs.filter(action_type=action_type)
         total = logs.count()
         page = logs[offset:offset + limit]
 
@@ -1463,137 +1473,42 @@ class AdminNotificationBroadcastView(APIView):
 
 
 class AdminNotificationFeedView(APIView):
-    """Aggregated recent activity feed for admin notifications."""
+    """Materialize recent platform activity into persisted per-admin
+    notifications and return them with the unread count.
+
+    GET /api/admin/notifications/feed/ -> {events: [...], unread_count: int}
+    """
     permission_classes = [IsAuthenticatedAdmin]
 
     def get(self, request):
-        from django.utils import timezone
-        from datetime import timedelta
-        seven_days_ago = timezone.now() - timedelta(days=7)
+        from .services.admin_feed import materialize_feed
         is_super = request.user.admin_profile.role == 'super_admin'
+        events, unread_count = materialize_feed(request.user, is_super)
+        return Response({'events': events, 'unread_count': unread_count})
 
-        events = []
 
-        # New user registrations (all admins)
-        try:
-            new_users = User.objects.exclude(admin_profile__isnull=False).filter(date_joined__gte=seven_days_ago).order_by('-date_joined').values('id', 'email', 'first_name', 'date_joined')[:5]
-            for u in new_users:
-                events.append({
-                    'type': 'new_user',
-                    'title': 'New User Registered',
-                    'message': f"{u['first_name'] or u['email']} joined the platform",
-                    'created_at': u['date_joined'].isoformat(),
-                    'link': f"/admin/users/{u['id']}",
-                })
-        except Exception:
-            pass
+class AdminNotificationUnreadCountView(APIView):
+    """Lightweight unread-count endpoint for the topbar badge (polled)."""
+    permission_classes = [IsAuthenticatedAdmin]
 
-        # User logins (all admins)
-        try:
-            logged_users = User.objects.exclude(admin_profile__isnull=False).filter(last_login__gte=seven_days_ago).order_by('-last_login')[:5]
-            for u in logged_users:
-                events.append({
-                    'type': 'user_login',
-                    'title': 'User Login',
-                    'message': f"{u.first_name or u.email} logged in",
-                    'created_at': u.last_login.isoformat(),
-                    'link': f"/admin/users/{u.id}",
-                })
-        except Exception:
-            pass
+    def get(self, request):
+        from .models import AdminNotification
+        unread = AdminNotification.objects.filter(
+            recipient=request.user, is_read=False
+        ).count()
+        return Response({'unread_count': unread})
 
-        # New admins + admin logins (super admin only)
-        if is_super:
-            try:
-                new_admins = AdminProfile.objects.filter(created_at__gte=seven_days_ago).select_related('user').order_by('-created_at')[:5]
-                for a in new_admins:
-                    events.append({
-                        'type': 'new_admin',
-                        'title': 'New Admin',
-                        'message': f"{a.user.first_name or a.user.email} joined as {a.get_role_display()}",
-                        'created_at': a.created_at.isoformat(),
-                        'link': '/admin/admins',
-                    })
-            except Exception:
-                pass
 
-            try:
-                logged_admins = User.objects.filter(admin_profile__isnull=False, last_login__gte=seven_days_ago).select_related('admin_profile').order_by('-last_login')[:5]
-                for u in logged_admins:
-                    events.append({
-                        'type': 'admin_login',
-                        'title': 'Admin Login',
-                        'message': f"{u.first_name or u.email} ({u.admin_profile.get_role_display()}) logged in",
-                        'created_at': u.last_login.isoformat(),
-                        'link': '/admin/admins',
-                    })
-            except Exception:
-                pass
+class AdminNotificationReadAllView(APIView):
+    """Mark every notification of the requesting admin as read."""
+    permission_classes = [IsAuthenticatedAdmin]
 
-        # Matches (all admins)
-        try:
-            from matching.models import Match
-            recent_matches = Match.objects.filter(created_at__gte=seven_days_ago).select_related('from_user', 'to_user').order_by('-created_at')[:5]
-            for m in recent_matches:
-                events.append({
-                    'type': 'match',
-                    'title': 'New Match',
-                    'message': f"{m.from_user.first_name or m.from_user.email} liked {m.to_user.first_name or m.to_user.email}",
-                    'created_at': m.created_at.isoformat(),
-                    'link': '/admin/matches',
-                })
-        except Exception:
-            pass
-
-        # Counselling sessions (all admins)
-        try:
-            from counselling.models import CounsellingSession
-            new_sessions = CounsellingSession.objects.filter(created_at__gte=seven_days_ago).order_by('-created_at')[:5]
-            for s in new_sessions:
-                events.append({
-                    'type': 'counselling',
-                    'title': 'Counselling Session',
-                    'message': f"{s.title} — {s.counsellor_name}",
-                    'created_at': s.created_at.isoformat(),
-                    'link': '/admin/counselling',
-                })
-        except Exception:
-            pass
-
-        # Pending photo approvals (all admins)
-        try:
-            from profiles.models import Photo
-            pending = Photo.objects.filter(review_status='pending', created_at__gte=seven_days_ago).order_by('-created_at')[:5]
-            for p in pending:
-                events.append({
-                    'type': 'photo',
-                    'title': 'Photo Pending Approval',
-                    'message': f"Photo #{p.id} by user {p.user_id} needs review",
-                    'created_at': p.created_at.isoformat(),
-                    'link': '/admin/moderation',
-                })
-        except Exception:
-            pass
-
-        # Chatbot escalations (all admins — link straight to the bot reports)
-        try:
-            from chatbot.models import BotTicket
-            recent_tickets = BotTicket.objects.select_related('conversation', 'user').order_by('-created_at')[:5]
-            for t in recent_tickets:
-                name = (t.user.get_full_name() or t.user.email) if t.user else 'Guest'
-                events.append({
-                    'type': 'bot_ticket',
-                    'title': 'Chatbot Escalation',
-                    'message': f'{name} raised a support ticket: {t.get_category_display()}',
-                    'created_at': t.created_at.isoformat(),
-                    'link': '/admin/bot-reports',
-                })
-        except Exception:
-            pass
-
-        events.sort(key=lambda e: e['created_at'], reverse=True)
-
-        return Response({'events': events})
+    def post(self, request):
+        from .models import AdminNotification
+        updated = AdminNotification.objects.filter(
+            recipient=request.user, is_read=False
+        ).update(is_read=True)
+        return Response({'unread_count': 0, 'marked': updated})
 
 
 class AdminBlockUnblockView(APIView):
@@ -1788,3 +1703,330 @@ class AdminPendingDenominationRejectView(APIView):
         if error:
             return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'message': 'Pending denomination rejected'})
+
+
+class AdminAnalyticsView(APIView):
+    """GET /api/admin/analytics/ — deep-dive live metrics + chart series."""
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        from .services.analytics_service import AnalyticsService
+        data = AnalyticsService.collect()
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Analytics",
+            action_type="read",
+            target_model="Analytics",
+            request=request,
+        )
+        return Response(data)
+
+
+class AdminIntegrationsView(APIView):
+    """GET/POST /api/admin/integrations/ — manage third-party API settings.
+
+    GET returns the catalog with values masked for secrets. POST accepts
+    ``{KEY: value}`` and persists to the DB (immediate runtime effect) and
+    writes the same values into ``Backend/.env`` so the server stays aligned.
+    An empty value clears the setting.
+    """
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        from .services.integration_service import catalog
+        entries = catalog()
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Integrations",
+            action_type="read",
+            target_model="Integration",
+            request=request,
+        )
+        return Response({'integrations': entries})
+
+    def post(self, request):
+        from .services.integration_service import catalog, resolve_updates, write_env_changes
+        from .models import IntegrationSetting
+
+        payload = request.data or {}
+        if not isinstance(payload, dict):
+            return Response({'error': 'Malformed payload.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        catalog_map = {e['key']: e for e in catalog()}
+        allowed = set(catalog_map.keys())
+        resolved = {k: v for k, v in resolve_updates(payload).items() if k in allowed}
+
+        saved = []
+        for key, value in resolved.items():
+            obj, _ = IntegrationSetting.objects.update_or_create(
+                key=key,
+                defaults={
+                    'value': value,
+                    'group': catalog_map[key]['group'],
+                    'label': catalog_map[key]['label'],
+                    'description': catalog_map[key]['description'],
+                    'is_secret': catalog_map[key]['is_secret'],
+                    'updated_by': request.user,
+                },
+            )
+            saved.append({'key': key, 'saved_value': bool(value or obj.value)})
+
+        env_updated = True
+        if resolved:
+            env_updated = write_env_changes(resolved)
+        else:
+            env_updated = False
+
+        AuditService.log(
+            actor=request.user,
+            action="Updated Integrations",
+            action_type="update",
+            target_model="Integration",
+            target_repr=", ".join(resolved.keys()),
+            changes=resolved,
+            request=request,
+        )
+
+        return Response({
+            'status': 'saved',
+            'saved': saved,
+            'env_updated': env_updated,
+            'note': 'Settings applied immediately. Written to Backend/.env to keep the server aligned.' if env_updated else 'Settings applied immediately, but the .env file could not be written — check server permissions.',
+            'integrations': catalog(),
+        })
+
+
+class AdminIntegrationTestView(APIView):
+    """POST /api/admin/integrations/test/flutterwave/ — validate Flutterwave credentials."""
+    permission_classes = [IsSuperAdmin]
+
+    def post(self, request):
+        from .services.integration_service import test_flutterwave
+        ok, detail = test_flutterwave()
+        AuditService.log(
+            actor=request.user,
+            action="Tested Flutterwave Integration",
+            action_type="read",
+            target_model="Integration",
+            request=request,
+        )
+        return Response({'ok': ok, 'detail': detail})
+
+
+class AdminSeoView(APIView):
+    """GET/PUT /api/admin/seo/ — manage the live site's SEO metadata."""
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        from .services.seo_service import get_or_create
+        from .serializers import SeoSettingSerializer
+        row = get_or_create()
+        return Response(SeoSettingSerializer(row).data)
+
+    def put(self, request):
+        from .services.seo_service import get_or_create
+        from .serializers import SeoSettingSerializer
+        row = get_or_create()
+        serializer = SeoSettingSerializer(row, data=request.data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.save(updated_by=request.user)
+        AuditService.log(
+            actor=request.user,
+            action="Updated SEO Settings",
+            action_type="update",
+            target_model="SeoSetting",
+            changes=dict(serializer.validated_data),
+            request=request,
+        )
+        return Response({'status': 'saved', 'seo': SeoSettingSerializer(row).data})
+
+
+class AdminLogsView(APIView):
+    """GET /api/admin/logs/ — list server log files; ?path=...&lines=N tails one.
+
+    Only super admin can read system logs.
+    """
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        from .services import logs_service
+        path = request.query_params.get('path', '')
+        if path:
+            lines = tail = request.query_params.get('lines', 200)
+            try:
+                lines = max(1, min(int(lines), 5000))
+            except (TypeError, ValueError):
+                lines = 200
+            content = logs_service.tail_file(path, lines)
+            return Response({'path': path, 'lines': content, 'total': len(content)})
+
+        files = logs_service.available()
+        AuditService.log(
+            actor=request.user,
+            action="Viewed System Logs",
+            action_type="read",
+            target_model="Log",
+            request=request,
+        )
+        return Response({'files': files})
+
+
+class AdminContentListView(APIView):
+    """GET /api/admin/content/ — list all content items (any status)."""
+    permission_classes = [IsSuperAdmin]
+
+    def get(self, request):
+        from .serializers import ContentItemSerializer
+        items = ContentItem.objects.all().order_by('-updated_at')
+        AuditService.log(
+            actor=request.user,
+            action="Viewed Content Items",
+            action_type="read",
+            target_model="ContentItem",
+            request=request,
+        )
+        return Response(ContentItemSerializer(items, many=True).data)
+
+
+def _unique_content_slug(title, exclude_id=None):
+    from django.utils.text import slugify
+    base = slugify(title) or 'content'
+    slug = base
+    n = 1
+    qs = ContentItem.objects.filter(slug=slug)
+    if exclude_id:
+        qs = qs.exclude(id=exclude_id)
+    while qs.exists():
+        n += 1
+        slug = f'{base}-{n}'
+        qs = ContentItem.objects.filter(slug=slug)
+        if exclude_id:
+            qs = qs.exclude(id=exclude_id)
+    return slug
+
+
+class AdminContentCreateView(APIView):
+    """POST /api/admin/content/ — create a content item."""
+    permission_classes = [IsSuperAdmin]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def post(self, request):
+        from .serializers import ContentItemSerializer
+        data = dict(request.data)
+        if not data.get('slug') and data.get('title'):
+            data['slug'] = _unique_content_slug(data['title'])
+        serializer = ContentItemSerializer(data=data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        item = serializer.save(created_by=request.user)
+        if item.status == 'published' and not item.published_at:
+            item.published_at = timezone.now()
+            item.save(update_fields=['published_at'])
+        AuditService.log(
+            actor=request.user,
+            action="Created Content Item",
+            action_type="create",
+            target_model="ContentItem",
+            target_id=str(item.id),
+            target_repr=item.title,
+            request=request,
+        )
+        return Response(ContentItemSerializer(item).data, status=status.HTTP_201_CREATED)
+
+
+class AdminContentDetailView(APIView):
+    """GET/PATCH/DELETE /api/admin/content/<id>/"""
+    permission_classes = [IsSuperAdmin]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def _get(self, content_id):
+        return ContentItem.objects.filter(id=content_id).first()
+
+    def get(self, request, content_id):
+        from .serializers import ContentItemSerializer
+        item = self._get(content_id)
+        if item is None:
+            return Response({'error': 'Content not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ContentItemSerializer(item).data)
+
+    def patch(self, request, content_id):
+        from .serializers import ContentItemSerializer
+        item = self._get(content_id)
+        if item is None:
+            return Response({'error': 'Content not found.'}, status=status.HTTP_404_NOT_FOUND)
+        data = dict(request.data)
+        if not data.get('slug') and data.get('title'):
+            data['slug'] = _unique_content_slug(data['title'], exclude_id=item.id)
+        serializer = ContentItemSerializer(item, data=data, partial=True)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        item = serializer.save()
+        if item.status == 'published' and not item.published_at:
+            item.published_at = timezone.now()
+            item.save(update_fields=['published_at'])
+        AuditService.log(
+            actor=request.user,
+            action="Updated Content Item",
+            action_type="update",
+            target_model="ContentItem",
+            target_id=str(item.id),
+            target_repr=item.title,
+            changes=dict(serializer.validated_data),
+            request=request,
+        )
+        return Response(ContentItemSerializer(item).data)
+
+    def delete(self, request, content_id):
+        item = self._get(content_id)
+        if item is None:
+            return Response({'error': 'Content not found.'}, status=status.HTTP_404_NOT_FOUND)
+        title = item.title
+        item.delete()
+        AuditService.log(
+            actor=request.user,
+            action="Deleted Content Item",
+            action_type="delete",
+            target_model="ContentItem",
+            target_id=str(content_id),
+            target_repr=title,
+            request=request,
+        )
+        return Response({'status': 'deleted'})
+
+
+class PublicSeoView(APIView):
+    """GET /api/seo/ — public SEO config for the marketing site."""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from .services.seo_service import public_dict
+        return Response(public_dict())
+
+
+class PublicContentView(APIView):
+    """GET /api/content/ — published content items, optionally filtered by
+    ?category=blog|devotional|article. GET /api/content/<slug>/ fetches one."""
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from .serializers import ContentItemSerializer
+        category = request.query_params.get('category', '')
+        qs = ContentItem.objects.filter(status='published').order_by('-featured', '-published_at')
+        if category:
+            qs = qs.filter(category=category)
+        return Response(ContentItemSerializer(qs[:200], many=True).data)
+
+
+class PublicContentDetailView(APIView):
+    authentication_classes = []
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, slug):
+        from .serializers import ContentItemSerializer
+        item = ContentItem.objects.filter(slug=slug, status='published').first()
+        if item is None:
+            return Response({'error': 'Content not found.'}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ContentItemSerializer(item).data)

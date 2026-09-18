@@ -8,6 +8,7 @@ import { AdminProvider } from "./context/AdminContext";
 import { Navbar } from "./components/Navbar";
 import { Footer } from "./components/Footer";
 import ChatWidget from "./components/ChatWidget";
+import SeoMeta from "./components/SeoMeta";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
 import AdminLayout from "./pages/admin/AdminLayout";
 
@@ -154,9 +155,10 @@ function MainLayout() {
 function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter>
+<BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
+            <SeoMeta />
             <Suspense fallback={<PageLoader />}>
               <Routes>
                 <Route path="/dashboard" element={<DashboardLayout />}>

@@ -58,7 +58,13 @@ _token_lock = threading.Lock()
 
 
 def _sandbox():
-    return getattr(settings, 'FLUTTERWAVE_SANDBOX', False)
+    # Prefer the DB override (admin Integrations page) so changes apply live;
+    # falls back to the FLUTTERWAVE_SANDBOX env value baked into settings.
+    from admins.services.integration_service import get_bool_value, get_value
+    raw = get_value('FLUTTERWAVE_SANDBOX', '')
+    if raw == '':
+        return getattr(settings, 'FLUTTERWAVE_SANDBOX', False)
+    return get_bool_value('FLUTTERWAVE_SANDBOX', False)
 
 
 def _base_url():
@@ -70,25 +76,39 @@ def _base_url():
 
 
 def _client_id():
-    val = getattr(settings, 'FLUTTERWAVE_CLIENT_ID', '')
+    from admins.services.integration_service import get_value
+    val = get_value('FLUTTERWAVE_CLIENT_ID', None)
+    if val is None:
+        val = getattr(settings, 'FLUTTERWAVE_CLIENT_ID', '')
     if not val:
         raise FlutterwaveError('FLUTTERWAVE_CLIENT_ID is not configured.')
     return val
 
 
 def _client_secret():
-    val = getattr(settings, 'FLUTTERWAVE_CLIENT_SECRET', '')
+    from admins.services.integration_service import get_value
+    val = get_value('FLUTTERWAVE_CLIENT_SECRET', None)
+    if val is None:
+        val = getattr(settings, 'FLUTTERWAVE_CLIENT_SECRET', '')
     if not val:
         raise FlutterwaveError('FLUTTERWAVE_CLIENT_SECRET is not configured.')
     return val
 
 
 def _hash():
-    return getattr(settings, 'FLUTTERWAVE_SECRET_HASH', '')
+    from admins.services.integration_service import get_value
+    val = get_value('FLUTTERWAVE_SECRET_HASH', None)
+    if val is None:
+        val = getattr(settings, 'FLUTTERWAVE_SECRET_HASH', '')
+    return val
 
 
 def _public_key():
-    return getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', '')
+    from admins.services.integration_service import get_value
+    val = get_value('FLUTTERWAVE_PUBLIC_KEY', None)
+    if val is None:
+        val = getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', '')
+    return val
 
 
 def get_access_token():

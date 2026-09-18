@@ -1,6 +1,6 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
-from .models import AdminProfile, AdminInvitation
+from .models import AdminProfile, AdminInvitation, ContentItem, SeoSetting
 
 User = get_user_model()
 
@@ -168,3 +168,32 @@ class ChatModerationLogSerializer(serializers.Serializer):
         if not user:
             return fallback
         return f"{user.first_name} {user.last_name}".strip() or user.email
+
+
+class ContentItemSerializer(serializers.ModelSerializer):
+    cover_image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ContentItem
+        fields = [
+            'id', 'title', 'slug', 'category', 'excerpt', 'body',
+            'cover_image', 'cover_image_url', 'author_name',
+            'status', 'featured', 'published_at',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        extra_kwargs = {'cover_image': {'write_only': True}}
+
+    def get_cover_image_url(self, obj):
+        if obj.cover_image:
+            try:
+                return obj.cover_image.url
+            except Exception:
+                return ''
+        return ''
+
+
+class SeoSettingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SeoSetting
+        exclude = ['updated_by']
