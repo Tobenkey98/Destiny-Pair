@@ -279,7 +279,7 @@ class VerifyPaymentView(APIView):
         }
         if (
             (verified is None or not amount_ok)
-            and settings.FLUTTERWAVE_SANDBOX
+            and flutterwave._sandbox()
             and (success_like or transaction_id)
         ):
             logger.warning(
@@ -297,7 +297,7 @@ class VerifyPaymentView(APIView):
             amount_ok = True
 
         if verified is None or not amount_ok:
-            if not settings.FLUTTERWAVE_SANDBOX:
+            if not flutterwave._sandbox():
                 return Response(
                     {'error': 'GATEWAY_UNAVAILABLE', 'gateway': gateway,
                      'detail': 'Payment could not be verified with Flutterwave.'},

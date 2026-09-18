@@ -9,6 +9,18 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
 
+    # Values passed through to the VPS as remote env vars (via the `envs`
+    # input below) so the server's Backend/.env can be kept in sync with
+    # live configuration on every deploy. Empty values default to live mode.
+    env:
+      FLUTTERWAVE_CLIENT_ID: ${{ secrets.FLUTTERWAVE_CLIENT_ID }}
+      FLUTTERWAVE_CLIENT_SECRET: ${{ secrets.FLUTTERWAVE_CLIENT_SECRET }}
+      FLUTTERWAVE_ENCRYPTION_KEY: ${{ secrets.FLUTTERWAVE_ENCRYPTION_KEY }}
+      FLUTTERWAVE_PUBLIC_KEY: ${{ secrets.FLUTTERWAVE_PUBLIC_KEY }}
+      FLUTTERWAVE_SECRET_HASH: ${{ secrets.FLUTTERWAVE_SECRET_HASH }}
+      FLUTTERWAVE_SANDBOX: ${{ secrets.FLUTTERWAVE_SANDBOX }}
+      FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+
     steps:
       - name: Execute Deployment Commands on VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -16,6 +28,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: FLUTTERWAVE_CLIENT_ID,FLUTTERWAVE_CLIENT_SECRET,FLUTTERWAVE_ENCRYPTION_KEY,FLUTTERWAVE_PUBLIC_KEY,FLUTTERWAVE_SECRET_HASH,FLUTTERWAVE_SANDBOX,FRONTEND_URL
           script: |
             # Fail the run on the first error so a broken deploy can never
             # report success (appleboy/ssh-action does not set -e by default,
@@ -51,6 +64,43 @@ jobs:
             # the daphne systemd service exists — until then this warns only.
             cd ../Backend
             source ../venv/bin/activate
+
+            # --- SYNC LIVE CONFIG INTO Backend/.env -------------------
+            # The repo never ships .env (it is gitignored), so the server's
+            # copy can silently keep stale/test values. Rewrite the runtime
+            # keys from these workflow env vars on every deploy so the live
+            # payment gateway is always configured correctly. Keys with no
+            # value are left untouched (never clobber an existing value), but
+            # FLUTTERWAVE_SANDBOX is always pinned to empty -> live mode so a
+            # stale test flag can never survive a deploy.
+            python - <<'PYEOF'
+import os
+from pathlib import Path
+from dotenv import set_key
+
+env = Path('.env')
+
+KEYS = (
+    'FLUTTERWAVE_CLIENT_ID',
+    'FLUTTERWAVE_CLIENT_SECRET',
+    'FLUTTERWAVE_ENCRYPTION_KEY',
+    'FLUTTERWAVE_PUBLIC_KEY',
+    'FLUTTERWAVE_SECRET_HASH',
+    'FRONTEND_URL',
+)
+for key in KEYS:
+    value = os.environ.get(key, '')
+    if value:
+        set_key(str(env), key, value, quote_mode='always')
+# Stale sandbox flag: always reset (empty -> live API).
+set_key(str(env), 'FLUTTERWAVE_SANDBOX', '', quote_mode='always')
+print('Backend/.env updated with live configuration keys')
+PYEOF
+
+            # Mirror the .env values into the DB integration overrides so a
+            # stale IntegrationSetting row can never shadow the live config.
+            python manage.py sync_integrations_from_env
+
             python manage.py migrate
             python manage.py seed_plans
             sudo systemctl restart gunicorn

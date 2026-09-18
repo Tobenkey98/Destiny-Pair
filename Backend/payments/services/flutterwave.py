@@ -483,7 +483,7 @@ def handle_webhook(payload_data):
     try:
         verified = verify_transaction(flw_tx_id)
     except (FlutterwaveError, FlutterwaveVerificationError) as exc:
-        if settings.FLUTTERWAVE_SANDBOX:
+        if _sandbox():
             # Sandbox: if the charge id cannot be re-read, trust the webhook
             # event (test cards only) so activation works end-to-end.
             logger.warning('SANDBOX webhook fallback for %s: %s', reference, exc)
