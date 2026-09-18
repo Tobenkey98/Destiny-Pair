@@ -70,32 +70,41 @@ jobs:
             # copy can silently keep stale/test values. Rewrite the runtime
             # keys from these workflow env vars on every deploy so the live
             # payment gateway is always configured correctly. Keys with no
-            # value are left untouched (never clobber an existing value), but
-            # FLUTTERWAVE_SANDBOX is always pinned to empty -> live mode so a
-            # stale test flag can never survive a deploy.
+            # value are left untouched (never clobber an existing value).
+            # The stale sandbox flag is only pinned off (live API) once live
+            # client credentials are actually provided via secrets, so a
+            # deploy can never flip to live mode while test keys remain.
             python - <<'PYEOF'
-import os
-from pathlib import Path
-from dotenv import set_key
+            import os
+            from pathlib import Path
+            from dotenv import set_key
 
-env = Path('.env')
+            env = Path('.env')
 
-KEYS = (
-    'FLUTTERWAVE_CLIENT_ID',
-    'FLUTTERWAVE_CLIENT_SECRET',
-    'FLUTTERWAVE_ENCRYPTION_KEY',
-    'FLUTTERWAVE_PUBLIC_KEY',
-    'FLUTTERWAVE_SECRET_HASH',
-    'FRONTEND_URL',
-)
-for key in KEYS:
-    value = os.environ.get(key, '')
-    if value:
-        set_key(str(env), key, value, quote_mode='always')
-# Stale sandbox flag: always reset (empty -> live API).
-set_key(str(env), 'FLUTTERWAVE_SANDBOX', '', quote_mode='always')
-print('Backend/.env updated with live configuration keys')
-PYEOF
+            KEYS = (
+                'FLUTTERWAVE_CLIENT_ID',
+                'FLUTTERWAVE_CLIENT_SECRET',
+                'FLUTTERWAVE_ENCRYPTION_KEY',
+                'FLUTTERWAVE_PUBLIC_KEY',
+                'FLUTTERWAVE_SECRET_HASH',
+                'FRONTEND_URL',
+            )
+            for key in KEYS:
+                value = os.environ.get(key, '')
+                if value:
+                    set_key(str(env), key, value, quote_mode='always')
+            # Only force live mode when real live credentials are configured.
+            has_live_creds = bool(
+                os.environ.get('FLUTTERWAVE_CLIENT_ID')
+                and os.environ.get('FLUTTERWAVE_CLIENT_SECRET')
+            )
+            if has_live_creds:
+                # Stale sandbox flag: reset (empty -> live API).
+                set_key(str(env), 'FLUTTERWAVE_SANDBOX', '', quote_mode='always')
+                print('Backend/.env pushed to live Flutterwave (sandbox off)')
+            else:
+                print('Backend/.env: live Flutterwave secrets not set - leaving config untouched')
+            PYEOF
 
             # Mirror the .env values into the DB integration overrides so a
             # stale IntegrationSetting row can never shadow the live config.
