@@ -1,29 +1,18 @@
-"""Flutterwave (v4) integration via the Checkout Sessions API.
+"""Flutterwave v3 integration via the standard Payments API.
 
-Flutterwave v4 authenticates with OAuth 2.0 (client_credentials) rather than a
-static secret key. A short-lived ``access_token`` is fetched from the identity
-provider and cached until ~1 minute before expiry.
+Authentication uses the static ``FLUTTERWAVE_SECRET_KEY`` as a Bearer token.
 
-The hosted flow used here:
-  1. ``create_customer``        -> a Flutterwave ``customer_id``
-  2. ``create_checkout_session`` -> a hosted ``checkout_url`` the user is
-     redirected to. The session ``id`` is stored as our payment's
-     ``transaction_reference`` and the server-generated ``reference`` is sent
-     as Flutterwave's ``reference`` (returned as ``tx_ref`` on redirect).
-  3. After payment the user returns to ``redirect_url?tx_ref=...&status=...``
-     and/or Flutterwave fires a webhook. Activation only happens after a
-     server-side re-check of the checkout session (never trusting the browser).
-
-The ``encryption_key`` is for client-side card encryption (inline charges) and
-is not needed for this hosted flow, but is stored for completeness.
+Hosted flow:
+  1. ``initialize_transaction`` -> POST /v3/payments (tx_ref, amount, customer,
+     customizations, redirect_url) -> returns ``data.link`` (hosted checkout URL).
+  2. User pays on the hosted page, is redirected to ``redirect_url``, and/or a
+     webhook fires. Activation only happens after a server-side re-verification
+     of the transaction via the v3 verify endpoints.
 """
 
 import hmac
 import logging
 import re
-import threading
-import time
-import uuid
 
 from django.conf import settings
 import requests
@@ -33,14 +22,8 @@ from payments.services.activation import activate_paid_subscription
 
 logger = logging.getLogger(__name__)
 
-TOKEN_URL = 'https://idp.flutterwave.com/realms/flutterwave/protocol/openid-connect/token'
-
-CHECKOUT_SESSIONS_PATH = '/checkout/sessions'
-CUSTOMERS_PATH = '/customers'
-
-EVENT_CHECKOUT_SESSION = 'checkout.session.completed'
-
-SUCCESS_STATUSES = {'paid', 'complete', 'successful', 'succeeded', 'success'}
+BASE_URL = 'https://api.flutterwave.com/v3'
+EVENT_CHARGE_COMPLETED = 'charge.completed'
 
 
 class FlutterwaveError(Exception):
@@ -51,46 +34,18 @@ class FlutterwaveVerificationError(FlutterwaveError):
     pass
 
 
-# --- OAuth token cache ------------------------------------------------------
-_token_cache = {'token': None, 'expiry': 0.0}
-_token_lock = threading.Lock()
-
-
-def _sandbox():
-    # Prefer the DB override (admin Integrations page) so changes apply live;
-    # falls back to the FLUTTERWAVE_SANDBOX env value baked into settings.
-    from admins.services.integration_service import get_bool_value, get_value
-    raw = get_value('FLUTTERWAVE_SANDBOX', '')
-    if raw == '':
-        return getattr(settings, 'FLUTTERWAVE_SANDBOX', False)
-    return get_bool_value('FLUTTERWAVE_SANDBOX', False)
-
-
-def _base_url():
-    return (
-        'https://developersandbox-api.flutterwave.com'
-        if _sandbox()
-        else 'https://f4bexperience.flutterwave.com'
-    )
-
-
-def _client_id():
+def _secret_key():
     from admins.services.integration_service import get_value
-    val = get_value('FLUTTERWAVE_CLIENT_ID', None)
+    val = get_value('FLUTTERWAVE_SECRET_KEY', None)
     if val is None:
-        val = getattr(settings, 'FLUTTERWAVE_CLIENT_ID', '')
+        val = getattr(settings, 'FLUTTERWAVE_SECRET_KEY', '')
+    # Back-compat: some installs stored it under FLUTTERWAVE_SECRET.
     if not val:
-        raise FlutterwaveError('FLUTTERWAVE_CLIENT_ID is not configured.')
-    return val
-
-
-def _client_secret():
-    from admins.services.integration_service import get_value
-    val = get_value('FLUTTERWAVE_CLIENT_SECRET', None)
-    if val is None:
-        val = getattr(settings, 'FLUTTERWAVE_CLIENT_SECRET', '')
+        val = get_value('FLUTTERWAVE_SECRET', None)
+        if val is None:
+            val = getattr(settings, 'FLUTTERWAVE_SECRET', '')
     if not val:
-        raise FlutterwaveError('FLUTTERWAVE_CLIENT_SECRET is not configured.')
+        raise FlutterwaveError('FLUTTERWAVE_SECRET_KEY is not configured.')
     return val
 
 
@@ -102,66 +57,16 @@ def _hash():
     return val
 
 
-def _public_key():
-    from admins.services.integration_service import get_value
-    val = get_value('FLUTTERWAVE_PUBLIC_KEY', None)
-    if val is None:
-        val = getattr(settings, 'FLUTTERWAVE_PUBLIC_KEY', '')
-    return val
-
-
-def get_access_token():
-    """Return a cached OAuth access token, fetching a new one if needed."""
-    with _token_lock:
-        now = time.time()
-        if _token_cache['token'] and _token_cache['expiry'] - 60 > now:
-            return _token_cache['token']
-        return _fetch_token()
-
-
-def _fetch_token():
-    try:
-        resp = requests.post(
-            TOKEN_URL,
-            data={
-                'client_id': _client_id(),
-                'client_secret': _client_secret(),
-                'grant_type': 'client_credentials',
-            },
-            headers={'Content-Type': 'application/x-www-form-urlencoded'},
-            timeout=15,
-        )
-    except requests.RequestException as exc:
-        logger.error('Flutterwave OAuth failed: %s', exc)
-        raise FlutterwaveError('Could not authenticate with Flutterwave.') from exc
-
-    data = _json_or_raise(resp, 'OAuth token')
-    token = data.get('access_token')
-    if not token:
-        raise FlutterwaveError(f"Flutterwave OAuth rejected: {resp.status_code} {resp.text[:200]}")
-    try:
-        expires_in = int(data.get('expires_in', 600))
-    except (TypeError, ValueError):
-        expires_in = 600
-    _token_cache['token'] = token
-    _token_cache['expiry'] = time.time() + expires_in
-    logger.info('Flutterwave access token fetched (expires in %ss)', expires_in)
-    return token
-
-
 def _headers():
     return {
-        'Authorization': f'Bearer {get_access_token()}',
+        'Authorization': f'Bearer {_secret_key()}',
         'Content-Type': 'application/json',
-        'X-Trace-Id': uuid.uuid4().hex,
     }
 
 
 def _post(path, payload):
-    headers = _headers()
-    headers['X-Idempotency-Key'] = uuid.uuid4().hex
     try:
-        resp = requests.post(f'{_base_url()}{path}', json=payload, headers=headers, timeout=20)
+        resp = requests.post(f'{BASE_URL}{path}', json=payload, headers=_headers(), timeout=20)
     except requests.RequestException as exc:
         logger.error('Flutterwave POST %s failed: %s', path, exc)
         raise FlutterwaveError('Could not reach Flutterwave.') from exc
@@ -170,7 +75,7 @@ def _post(path, payload):
 
 def _get(path):
     try:
-        resp = requests.get(f'{_base_url()}{path}', headers=_headers(), timeout=20)
+        resp = requests.get(f'{BASE_URL}{path}', headers=_headers(), timeout=20)
     except requests.RequestException as exc:
         logger.error('Flutterwave GET %s failed: %s', path, exc)
         raise FlutterwaveError('Could not reach Flutterwave.') from exc
@@ -178,14 +83,7 @@ def _get(path):
 
 
 def _json_or_raise(resp, context):
-    """Parse ``resp`` as JSON or raise a readable FlutterwaveError.
-
-    Some gateways/proxies return plain-text error pages (e.g. an Express-style
-    ``Cannot POST /customers``) instead of JSON. ``requests`` then raises
-    ``requests.exceptions.JSONDecodeError`` (a subclass of ``ValueError``) from
-    ``resp.json()``, which previously crashed checkout. We catch it, log the raw
-    body, and surface a readable error instead.
-    """
+    """Parse ``resp`` as JSON or raise a readable FlutterwaveError."""
     try:
         return resp.json()
     except ValueError:
@@ -200,92 +98,46 @@ def _json_or_raise(resp, context):
 
 
 def _normalize_phone(phone):
-    """Return a (country_code, local_number) pair valid for Flutterwave.
-
-    Flutterwave requires ``number`` to be 7-10 digits (local, without the
-    country dial code). Falls back to a safe placeholder when the user has no
-    usable phone number.
-    """
     digits = re.sub(r'\D', '', phone or '')
-    country_code = '234'
-    number = digits
-    if number.startswith('234') and len(number) >= 10:
-        number = number[3:]
-    elif number.startswith('0') and len(number) >= 10:
-        number = number[1:]
-    if not (7 <= len(number) <= 10):
-        number = '8012345678'
-    return country_code, number
-
-
-def _normalize_name(value):
-    """Flutterwave names may only contain letters, spaces, commas, periods,
-    hyphens and apostrophes, and must be 2-50 characters. Return a sanitized
-    value, or '' when the source is unusable.
-    """
-    if not value:
-        return ''
-    cleaned = re.sub(r"[^A-Za-z\s,.'\-]", '', str(value)).strip()
-    if len(cleaned) < 2:
-        return ''
-    return cleaned[:50]
-
-
-def create_customer(user):
-    """Create (or fetch) a Flutterwave customer for the given user."""
-    raw = user.get_full_name() or user.username or user.email or ''
-    parts = raw.split(' ', 1)
-    first = _normalize_name(parts[0]) or 'User'
-    last = _normalize_name(parts[1]) if len(parts) > 1 else ''
-    if not last:
-        last = first
-    country_code, number = _normalize_phone(getattr(user, 'phone_number', '') or '')
-    payload = {
-        'email': user.email,
-        'name': {'first': first, 'last': last},
-        'phone': {'country_code': country_code, 'number': number},
-    }
-    resp = _post(CUSTOMERS_PATH, payload)
-    data = _json_or_raise(resp, 'customer create')
-    if data.get('status') == 'success':
-        customer_id = (data.get('data') or {}).get('id')
-        if not customer_id:
-            raise FlutterwaveError('Flutterwave returned no customer id.')
-        return customer_id
-    # 409 conflict: the customer already exists -> fetch and reuse the id.
-    if resp.status_code == 409 or data.get('code') == '10409':
-        return _fetch_customer_by_email(user.email)
-    raise FlutterwaveError(f"Flutterwave customer create failed: {resp.status_code} {resp.text[:200]}")
-
-
-def _fetch_customer_by_email(email):
-    """Return an existing customer id for the given email (used on 409)."""
-    resp = _get(f'{CUSTOMERS_PATH}?email={email}')
-    data = _json_or_raise(resp, 'customer fetch')
-    items = data.get('data') or []
-    if isinstance(items, dict):
-        items = [items]
-    for item in items:
-        if item.get('id'):
-            return item['id']
-    raise FlutterwaveError('Flutterwave customer already exists but could not be fetched.')
+    # Prefer preserving full number including country code for v3 phonenumber.
+    # Fall back to a safe placeholder when no usable number exists.
+    if len(digits) < 7:
+        return '08012345678'
+    if digits.startswith('0'):
+        return digits
+    if digits.startswith('234') and len(digits) >= 11:
+        return '0' + digits[3:]
+    # If no leading 0 or country code, treat as local and prefix 0.
+    if 7 <= len(digits) <= 10:
+        return '0' + digits.lstrip('0')
+    return digits
 
 
 def initialize_transaction(user, plan, payment_reference, redirect_url=None):
-    """Create a Flutterwave v4 Checkout Session and return the hosted URL."""
-    customer_id = create_customer(user)
+    """Create a Flutterwave v3 payment and return the hosted URL."""
+    raw_name = user.get_full_name() or user.username or user.email or 'Customer'
+    # v3 expects a simple string name; sanitize lightly.
+    customer_name = re.sub(r"[^A-Za-z0-9\s,.'\-]", '', str(raw_name)).strip()[:100] or 'Customer'
+    phonenumber = _normalize_phone(getattr(user, 'phone_number', '') or '')
 
     payload = {
+        'tx_ref': payment_reference,
         'amount': float(plan.price),
         'currency': 'NGN',
-        'customer_id': customer_id,
-        'redirect_url': redirect_url or getattr(settings, 'FLUTTERWAVE_CALLBACK_URL', ''),
-        'reference': payment_reference,
-        'payment_options': 'banktransfer,ussd',  # STRICT RULE: No spaces
-        'max_retry_attempts': 3,
+        'redirect_url': redirect_url or getattr(settings, 'FLUTTERWAVE_CALLBACK_URL', '') or getattr(settings, 'FRONTEND_URL', ''),
+        'payment_options': 'banktransfer,ussd',
+        'customer': {
+            'email': user.email,
+            'phonenumber': phonenumber,
+            'name': customer_name,
+        },
+        'customizations': {
+            'title': f'{plan.name} - DestinyPair',
+            'description': f'Payment for {plan.name}',
+        },
     }
 
-    resp = _post(CHECKOUT_SESSIONS_PATH, payload)
+    resp = _post('/payments', payload)
     data = _json_or_raise(resp, 'checkout session create')
     body = data.get('data') or {}
 
@@ -309,81 +161,85 @@ def initialize_transaction(user, plan, payment_reference, redirect_url=None):
     return {
         'checkout_url': checkout_url,
         'checkout_id': body.get('id', ''),
-        'amount': float(amount.get('value')) if isinstance(amount, dict) else float(amount or plan.price),
+        'amount': float(amount) if isinstance(amount, (int, float)) else float(amount or plan.price) if amount is not None else float(plan.price),
         'currency': body.get('currency', 'NGN'),
-        'reference': body.get('reference') or payment_reference,
+        'reference': body.get('tx_ref') or body.get('reference') or payment_reference,
     }
 
 
-def _parse_charge(body, ref):
-    """Extract a normalized verification result from a v4 Charge object."""
+def _parse_transaction(body, ref):
+    """Normalize a v3 transaction object and enforce success."""
     status = (body.get('status') or '').lower()
+    if status != 'successful':
+        if status in ('failed', 'cancelled', 'abandoned'):
+            raise FlutterwaveVerificationError(f"Transaction {ref} is {status}.")
+        raise FlutterwaveVerificationError(f"Transaction {ref} is not successful yet ({status or 'unknown'}).")
+
     try:
         amount = float(body.get('amount') or body.get('charged_amount') or 0)
     except (TypeError, ValueError):
         amount = 0.0
     currency = body.get('currency') or ''
-    if status in SUCCESS_STATUSES:
-        return {
-            'status': 'successful',
-            'amount': amount,
-            'currency': currency,
-            'id': body.get('id'),
-            'flw_ref': body.get('flw_ref') or body.get('id'),
-            'tx_ref': body.get('tx_ref') or body.get('reference') or ref,
-        }
-    if status in ('expired', 'failed', 'cancelled', 'declined', 'abandoned'):
-        raise FlutterwaveVerificationError(f"Charge {ref} is {status}.")
-    raise FlutterwaveVerificationError(f"Charge {ref} is not successful yet ({status or 'unknown'}).")
+
+    return {
+        'status': 'successful',
+        'amount': amount,
+        'currency': currency,
+        'id': body.get('id'),
+        'flw_ref': body.get('flw_ref') or body.get('id'),
+        'tx_ref': body.get('tx_ref') or ref,
+    }
 
 
 def verify_transaction(transaction_id):
-    """Verify a Flutterwave v4 charge by its id.
-
-    The v4 OAuth token reads charges from the v4 Charges API (``/charges``). A
-    checkout session id is not a charge id, so callers should prefer verifying
-    by reference (``verify_transaction_by_reference``); this helper targets a
-    known charge id.
-
-    Raises FlutterwaveVerificationError when the charge is not successful.
-    """
-    resp = _get(f'/charges/{transaction_id}')
-    data = _json_or_raise(resp, 'charge fetch')
+    """Verify a v3 transaction by its id (GET /v3/transactions/{id}/verify)."""
+    resp = _get(f'/transactions/{transaction_id}/verify')
+    data = _json_or_raise(resp, 'transaction verify')
     body = data.get('data') or {}
     if not body:
-        raise FlutterwaveVerificationError(f"Charge {transaction_id} not found.")
-    return _parse_charge(body, transaction_id)
+        raise FlutterwaveVerificationError(f"Transaction {transaction_id} not found.")
+    # v3 nests transaction under data; some responses wrap again. Handle both.
+    if isinstance(body, dict) and 'data' in body and isinstance(body['data'], dict) and 'status' in body['data']:
+        body = body['data']
+    return _parse_transaction(body, str(transaction_id))
 
 
 def verify_transaction_by_reference(tx_ref):
-    """Verify a Flutterwave charge by our tx_ref using the v4 Charges API.
+    """Verify a v3 transaction by tx_ref (GET /v3/transactions?tx_ref=...)."""
+    resp = _get(f'/transactions?tx_ref={tx_ref}')
+    data = _json_or_raise(resp, 'transaction lookup by tx_ref')
+    # v3 may return a list under data or a single object.
+    raw = data.get('data')
+    items = []
+    if isinstance(raw, list):
+        items = raw
+    elif isinstance(raw, dict):
+        # Could be paginated: data.data
+        if isinstance(raw.get('data'), list):
+            items = raw['data']
+        elif 'tx_ref' in raw or 'id' in raw:
+            items = [raw]
+        else:
+            items = list(raw.values()) if raw else []
 
-    The browser modal does not reliably return a transaction id, but our
-    generated tx_ref is always present in the redirect, so we look the charge
-    up by reference and verify its status.
-    """
     body = None
-    for query in (f'/charges?tx_ref={tx_ref}', f'/charges?reference={tx_ref}'):
-        resp = _get(query)
-        data = _json_or_raise(resp, 'charge lookup by reference')
-        items = data.get('data') or []
-        if isinstance(items, dict):
-            items = [items]
-        if items:
-            body = items[0]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        # Prefer exact tx_ref match
+        if item.get('tx_ref') == tx_ref or item.get('reference') == tx_ref:
+            body = item
             break
+        if body is None:
+            body = item
+
     if body is None:
-        raise FlutterwaveVerificationError(f"No charge found for reference {tx_ref}.")
-    return _parse_charge(body, tx_ref)
+        raise FlutterwaveVerificationError(f"No transaction found for reference {tx_ref}.")
+    return _parse_transaction(body, tx_ref)
 
 
 def verify_webhook_signature(request):
-    """Verify the webhook secret hash.
-
-    Flutterwave signs webhooks with the configured secret hash (header
-    ``verif-hash`` or ``x-flutterwave-signature``). If no hash is configured we
-    cannot verify and fail closed — set FLUTTERWAVE_SECRET_HASH for production.
-    """
+    """Verify the webhook secret hash (verif-hash header)."""
     expected = _hash()
     if not expected:
         logger.warning('Flutterwave webhook: FLUTTERWAVE_SECRET_HASH not set; signature NOT verified.')
@@ -397,21 +253,19 @@ def verify_webhook_signature(request):
 
 
 def handle_webhook(payload_data):
-    """Process a Flutterwave webhook event.
-
-    ``payload_data`` is the parsed JSON body. We re-verify the checkout session
-    server-side before activating — never trust the event payload alone.
-    """
+    """Process a Flutterwave webhook event (charge.completed)."""
     event = payload_data.get('event')
     data = payload_data.get('data') or {}
-    if event and event != EVENT_CHECKOUT_SESSION:
+    if event and event != EVENT_CHARGE_COMPLETED:
         logger.info('Flutterwave webhook event: %s', event)
 
     reference = (
-        data.get('reference')
-        or data.get('tx_ref')
-        or (data.get('data') or {}).get('reference')
+        data.get('tx_ref')
+        or data.get('reference')
         or (data.get('data') or {}).get('tx_ref')
+        or (data.get('data') or {}).get('reference')
+        or payload_data.get('tx_ref')
+        or payload_data.get('reference')
         or ''
     )
     if not reference:
@@ -434,6 +288,7 @@ def handle_webhook(payload_data):
         or payload_data.get('id')
         or data.get('flw_ref')
         or payload_data.get('flw_ref')
+        or (data.get('data') or {}).get('id')
     )
     if not flw_tx_id:
         logger.error('Flutterwave webhook: no transaction id for %s', reference)
@@ -442,28 +297,13 @@ def handle_webhook(payload_data):
     try:
         verified = verify_transaction(flw_tx_id)
     except (FlutterwaveError, FlutterwaveVerificationError) as exc:
-        if _sandbox():
-            # Sandbox: if the charge id cannot be re-read, trust the webhook
-            # event (test cards only) so activation works end-to-end.
-            logger.warning('SANDBOX webhook fallback for %s: %s', reference, exc)
-            verified = {
-                'status': 'successful',
-                'amount': float(payment.plan.price),
-                'currency': (data.get('currency') or 'NGN'),
-                'id': flw_tx_id,
-                'flw_ref': flw_tx_id,
-                'tx_ref': reference,
-            }
-        else:
-            logger.error('Flutterwave webhook re-verification failed for %s: %s',
-                         reference, exc)
-            return 'verification_failed'
+        logger.error('Flutterwave webhook re-verification failed for %s: %s', reference, exc)
+        return 'verification_failed'
 
-    expected = int(round(float(payment.plan.price)))
+    expected = int(round(float(payment.plan.price))) if payment.plan else None
     amount = int(round(float(verified.get('amount', 0))))
-    if amount and amount != expected:
-        logger.error('Flutterwave amount mismatch for %s: expected %s got %s',
-                     reference, expected, amount)
+    if expected is not None and amount and amount != expected:
+        logger.error('Flutterwave amount mismatch for %s: expected %s got %s', reference, expected, amount)
         return 'amount_mismatch'
 
     currency = verified.get('currency') or ''
