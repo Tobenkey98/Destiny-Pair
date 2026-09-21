@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { PageHero, Reveal } from "../components/Section";
 import { api, getUserAccessToken } from "../lib/api";
-import CheckoutForm from "./CheckoutForm";
 import { PLAN_FALLBACK, planFeatures, planMeta } from "../lib/plans";
 import { DOCUMENT_VERSIONS } from "../legalContent/versions";
 import { FlutterwaveIcon } from "../lib/payment-icons";
@@ -52,8 +51,6 @@ function Checkout() {
   const [activePlanSlug, setActivePlanSlug] = useState(null);
   const [verifyingGateway, setVerifyingGateway] = useState(null);
   const [consentChecked, setConsentChecked] = useState(false);
-  const [showCardForm, setShowCardForm] = useState(false);
-  const [directReference, setDirectReference] = useState("");
 
   const plan = useMemo(() => plans.find(p => p.slug === slug) || null, [plans, slug]);
 
@@ -230,8 +227,8 @@ function Checkout() {
                       </div>
                       <h3 className="mt-5 font-display text-3xl font-bold text-gradient-luxury">Payment confirmed</h3>
                       <p className="mt-3 text-muted-foreground">Your <strong>{plan.name}</strong> plan is now active. Welcome to the next chapter of your journey.</p>
-                      {(returnReference || directReference) && (
-                        <p className="mt-4 text-xs text-muted-foreground/80">Transaction reference: <span className="font-semibold text-foreground">{returnReference || directReference}</span></p>
+                      {returnReference && (
+                        <p className="mt-4 text-xs text-muted-foreground/80">Transaction reference: <span className="font-semibold text-foreground">{returnReference}</span></p>
                       )}
                       <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
                         <Link to="/dashboard" className="px-8 py-3.5 rounded-full bg-emerald text-[color:var(--gold-royal)] font-bold shadow-soft hover:shadow-glow transition">Go to dashboard</Link>
@@ -292,59 +289,6 @@ function Checkout() {
                           );
                         })}
                       </div>
-
-                      <div className="mt-6 flex items-center gap-3">
-                        <span className="h-px flex-1 bg-border" />
-                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">or</span>
-                        <span className="h-px flex-1 bg-border" />
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!consentChecked) {
-                            setError("Please review and accept the Terms of Use and the Refund & Cancellation Policy to continue.");
-                            return;
-                          }
-                          setError("");
-                          setShowCardForm((c) => !c);
-                        }}
-                        disabled={phase !== "idle"}
-                        className="mt-6 w-full text-left p-5 rounded-2xl border border-border bg-background transition hover:shadow-soft disabled:opacity-60"
-                      >
-                        <div className="flex items-center gap-4">
-                          <div className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 bg-secondary">
-                            <CreditCard className="h-6 w-6 text-[color:var(--gold-royal)]" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-display text-lg font-bold">Pay directly with your card</span>
-                              <span className="hidden sm:block text-xs px-3 py-1 rounded-full bg-secondary font-semibold">Card</span>
-                            </div>
-                            <p className="text-sm text-muted-foreground mt-1">Enter your card details — encrypted in your browser (AES-256-GCM), never stored by us.</p>
-                          </div>
-                          <span className="rounded-full border border-border p-2 group-hover:bg-secondary transition">
-                            <ArrowLeft className={`h-4 w-4 rotate-180 transition-transform ${showCardForm ? "rotate-90" : ""}`} />
-                          </span>
-                        </div>
-                      </button>
-
-                      {showCardForm && (
-                        <div className="mt-6">
-                          <CheckoutForm
-                            plan={plan}
-                            disabled={!consentChecked || phase !== "idle"}
-                            onSuccess={(data) => {
-                              const ref = data?.data?.reference || data?.data?.tx_ref || "";
-                              if (ref) setDirectReference(ref);
-                              setPhase("success");
-                              sessionStorage.removeItem("checkout_intent");
-                              sessionStorage.removeItem("checkout_reference");
-                              sessionStorage.removeItem("checkout_gateway");
-                            }}
-                          />
-                        </div>
-                      )}
 
                       {phase === "loading" && (
                         <p className="mt-4 text-sm text-muted-foreground flex items-center gap-2">

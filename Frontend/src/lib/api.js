@@ -220,9 +220,6 @@ export const api = {
   initPayment(payload) {
     return request('/subscriptions/subscribe/', { method: 'POST', body: JSON.stringify(payload) });
   },
-  chargeCard(payload) {
-    return request('/payments/charge/', { method: 'POST', body: JSON.stringify(payload) });
-  },
   verifyPayment(payload) {
     return request('/subscriptions/verify-payment/', { method: 'POST', body: JSON.stringify(payload) });
   },

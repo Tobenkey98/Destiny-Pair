@@ -37,8 +37,6 @@ TOKEN_URL = 'https://idp.flutterwave.com/realms/flutterwave/protocol/openid-conn
 
 CHECKOUT_SESSIONS_PATH = '/checkout/sessions'
 CUSTOMERS_PATH = '/customers'
-PAYMENT_METHODS_PATH = '/payment-methods'
-CHARGES_PATH = '/charges'
 
 EVENT_CHECKOUT_SESSION = 'checkout.session.completed'
 
@@ -312,66 +310,6 @@ def initialize_transaction(user, plan, payment_reference, redirect_url=None):
         'currency': body.get('currency', 'NGN'),
         'reference': body.get('reference') or payment_reference,
     }
-
-
-def create_card_payment_method(encrypted_data, nonce):
-    """Create a Flutterwave v4 card Payment Method from client-encrypted details.
-
-    ``encrypted_data`` is the per-field AES-256-GCM object produced by the
-    frontend (``encrypted_card_number``, ``encrypted_expiry_month``,
-    ``encrypted_expiry_year``, ``encrypted_cvv``) and ``nonce`` its shared
-    12-char nonce. The returned ``payment_method_id`` (``pmd_...``) is what the
-    live v4 Charges API expects on ``/charges``; it does not accept the card
-    data inline. Returns ``None`` when the gateway rejects the card data.
-    """
-    payload = {
-        'type': 'card',
-        'card': {
-            'nonce': nonce,
-            **encrypted_data,
-        },
-    }
-    resp = _post(PAYMENT_METHODS_PATH, payload)
-    data = _json_or_raise(resp, 'payment method create')
-    payment_method_id = (data.get('data') or {}).get('id')
-    if data.get('status') != 'success' or not payment_method_id:
-        logger.error('Flutterwave payment method create failed: %s %s', resp.status_code, resp.text[:300])
-        return None
-    return payment_method_id
-
-
-def charge_card(user, encrypted_data, nonce, amount, tx_ref, currency='NGN'):
-    """Charge a card via the v4 Charges API using client-encrypted details.
-
-    ``encrypted_data`` is the per-field object produced and encrypted by the
-    frontend (``encrypted_card_number``, ``encrypted_expiry_month``,
-    ``encrypted_expiry_year``, ``encrypted_cvv``) and ``nonce`` is its shared
-    12-character AES-GCM nonce. Both are passed through to Flutterwave verbatim
-    when registering the card as a v4 Payment Method — the backend never sees
-    the plain card number, so it never decrypts anything.
-
-    The raw Flutterwave v4 JSON body is returned as-is so callers can surface
-    ``data.next_action`` (redirect / PIN request) and the final charge status
-    ("successful", "pending", "failed", ...) to the client. A non-JSON gateway
-    response raises ``FlutterwaveError`` instead of crashing.
-    """
-    customer_id = create_customer(user)
-    payment_method_id = create_card_payment_method(encrypted_data, nonce)
-    if not payment_method_id:
-        raise FlutterwaveError('Flutterwave could not register this card for payment.')
-    payload = {
-        'amount': float(amount),
-        'currency': currency,
-        'reference': tx_ref,
-        'customer_id': customer_id,
-        'payment_method_id': payment_method_id,
-        'redirect_url': getattr(settings, 'FRONTEND_URL', ''),
-    }
-    resp = _post(CHARGES_PATH, payload)
-    data = _json_or_raise(resp, 'card charge')
-    if data.get('status') != 'success':
-        logger.error('Flutterwave card charge rejected: %s %s', resp.status_code, resp.text[:300])
-    return data
 
 
 def _parse_charge(body, ref):
