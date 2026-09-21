@@ -18,13 +18,12 @@ The ``encryption_key`` is for client-side card encryption (inline charges) and
 is not needed for this hosted flow, but is stored for completeness.
 """
 
-import hashlib
 import hmac
 import logging
-import os
 import re
 import threading
 import time
+import uuid
 
 from django.conf import settings
 import requests
@@ -38,6 +37,8 @@ TOKEN_URL = 'https://idp.flutterwave.com/realms/flutterwave/protocol/openid-conn
 
 CHECKOUT_SESSIONS_PATH = '/checkout/sessions'
 CUSTOMERS_PATH = '/customers'
+PAYMENT_METHODS_PATH = '/payment-methods'
+CHARGES_PATH = '/charges'
 
 EVENT_CHECKOUT_SESSION = 'checkout.session.completed'
 
@@ -71,7 +72,7 @@ def _base_url():
     return (
         'https://developersandbox-api.flutterwave.com'
         if _sandbox()
-        else 'https://api.flutterwave.com'
+        else 'https://f4bexperience.flutterwave.com'
     )
 
 
@@ -136,7 +137,7 @@ def _fetch_token():
         logger.error('Flutterwave OAuth failed: %s', exc)
         raise FlutterwaveError('Could not authenticate with Flutterwave.') from exc
 
-    data = resp.json() if resp.content else {}
+    data = _json_or_raise(resp, 'OAuth token')
     token = data.get('access_token')
     if not token:
         raise FlutterwaveError(f"Flutterwave OAuth rejected: {resp.status_code} {resp.text[:200]}")
@@ -154,12 +155,15 @@ def _headers():
     return {
         'Authorization': f'Bearer {get_access_token()}',
         'Content-Type': 'application/json',
+        'X-Trace-Id': uuid.uuid4().hex,
     }
 
 
 def _post(path, payload):
+    headers = _headers()
+    headers['X-Idempotency-Key'] = uuid.uuid4().hex
     try:
-        resp = requests.post(f'{_base_url()}{path}', json=payload, headers=_headers(), timeout=20)
+        resp = requests.post(f'{_base_url()}{path}', json=payload, headers=headers, timeout=20)
     except requests.RequestException as exc:
         logger.error('Flutterwave POST %s failed: %s', path, exc)
         raise FlutterwaveError('Could not reach Flutterwave.') from exc
@@ -173,6 +177,28 @@ def _get(path):
         logger.error('Flutterwave GET %s failed: %s', path, exc)
         raise FlutterwaveError('Could not reach Flutterwave.') from exc
     return resp
+
+
+def _json_or_raise(resp, context):
+    """Parse ``resp`` as JSON or raise a readable FlutterwaveError.
+
+    Some gateways/proxies return plain-text error pages (e.g. an Express-style
+    ``Cannot POST /customers``) instead of JSON. ``requests`` then raises
+    ``requests.exceptions.JSONDecodeError`` (a subclass of ``ValueError``) from
+    ``resp.json()``, which previously crashed checkout. We catch it, log the raw
+    body, and surface a readable error instead.
+    """
+    try:
+        return resp.json()
+    except ValueError:
+        logger.error(
+            'Flutterwave %s: non-JSON response (HTTP %s): %s',
+            context, resp.status_code, resp.text[:500],
+        )
+        raise FlutterwaveError(
+            f'Flutterwave {context} returned a non-JSON response (HTTP '
+            f'{resp.status_code}): {resp.text[:200]}'
+        ) from None
 
 
 def _normalize_phone(phone):
@@ -222,7 +248,7 @@ def create_customer(user):
         'phone': {'country_code': country_code, 'number': number},
     }
     resp = _post(CUSTOMERS_PATH, payload)
-    data = resp.json() if resp.content else {}
+    data = _json_or_raise(resp, 'customer create')
     if data.get('status') == 'success':
         customer_id = (data.get('data') or {}).get('id')
         if not customer_id:
@@ -237,7 +263,7 @@ def create_customer(user):
 def _fetch_customer_by_email(email):
     """Return an existing customer id for the given email (used on 409)."""
     resp = _get(f'{CUSTOMERS_PATH}?email={email}')
-    data = resp.json() if resp.content else {}
+    data = _json_or_raise(resp, 'customer fetch')
     items = data.get('data') or []
     if isinstance(items, dict):
         items = [items]
@@ -247,15 +273,7 @@ def _fetch_customer_by_email(email):
     raise FlutterwaveError('Flutterwave customer already exists but could not be fetched.')
 
 
-def _get_or_create_customer_id(user):
-    """Return a Flutterwave ``customer_id`` for ``user``, creating if needed."""
-    try:
-        return create_customer(user)
-    except FlutterwaveError:
-        raise
-
-
-def initialize_transaction(user, plan, payment_reference, redirect_url=None, callback_url=None):
+def initialize_transaction(user, plan, payment_reference, redirect_url=None):
     """Create a Flutterwave v4 Checkout Session and return the hosted URL.
 
     This is the fully server-side v4 flow: we create (or reuse) a customer and
@@ -266,7 +284,7 @@ def initialize_transaction(user, plan, payment_reference, redirect_url=None, cal
     carries onto the underlying charge so it can be verified server-side via the
     v4 Charges API (see ``verify_transaction_by_reference``).
     """
-    customer_id = _get_or_create_customer_id(user)
+    customer_id = create_customer(user)
     payload = {
         'amount': float(plan.price),
         'currency': 'NGN',
@@ -276,12 +294,18 @@ def initialize_transaction(user, plan, payment_reference, redirect_url=None, cal
         'max_retry_attempts': 3,
     }
     resp = _post(CHECKOUT_SESSIONS_PATH, payload)
-    data = resp.json() if resp.content else {}
+    data = _json_or_raise(resp, 'checkout session create')
     body = data.get('data') or {}
-    if data.get('status') != 'success' or not body.get('checkout_url'):
+    if data.get('status') != 'success' or not body:
         logger.error('Flutterwave checkout session failed: %s %s', resp.status_code, resp.text[:300])
         raise FlutterwaveError(
             f'Flutterwave checkout session create failed: {resp.status_code} {resp.text[:200]}'
+        )
+    if not body.get('checkout_url'):
+        logger.error('Flutterwave checkout session returned no checkout_url: %s', resp.text[:300])
+        raise FlutterwaveError(
+            'Flutterwave created a checkout session but returned no hosted checkout_url. '
+            'Enable the hosted Checkout (Checkout Sessions) feature on your Flutterwave account.'
         )
     amount = body.get('amount')
     return {
@@ -293,29 +317,64 @@ def initialize_transaction(user, plan, payment_reference, redirect_url=None, cal
     }
 
 
-def retrieve_checkout_session(session_id):
-    """Fetch a Flutterwave v4 checkout session by its id."""
-    resp = _get(f'{CHECKOUT_SESSIONS_PATH}/{session_id}')
-    data = resp.json() if resp.content else {}
-    body = data.get('data') or {}
-    if data.get('status') != 'success' or not body:
-        raise FlutterwaveError(
-            f'Flutterwave checkout session retrieve failed: {resp.status_code} {resp.text[:200]}'
-        )
-    return body
+def create_card_payment_method(encrypted_data, nonce):
+    """Create a Flutterwave v4 card Payment Method from client-encrypted details.
+
+    ``encrypted_data`` is the per-field AES-256-GCM object produced by the
+    frontend (``encrypted_card_number``, ``encrypted_expiry_month``,
+    ``encrypted_expiry_year``, ``encrypted_cvv``) and ``nonce`` its shared
+    12-char nonce. The returned ``payment_method_id`` (``pmd_...``) is what the
+    live v4 Charges API expects on ``/charges``; it does not accept the card
+    data inline. Returns ``None`` when the gateway rejects the card data.
+    """
+    payload = {
+        'type': 'card',
+        'card': {
+            'nonce': nonce,
+            **encrypted_data,
+        },
+    }
+    resp = _post(PAYMENT_METHODS_PATH, payload)
+    data = _json_or_raise(resp, 'payment method create')
+    payment_method_id = (data.get('data') or {}).get('id')
+    if data.get('status') != 'success' or not payment_method_id:
+        logger.error('Flutterwave payment method create failed: %s %s', resp.status_code, resp.text[:300])
+        return None
+    return payment_method_id
 
 
-def _normalize_session(body):
-    """Extract (status, amount, currency) from a checkout-session body."""
-    status = (body.get('status') or '').lower()
-    amount = body.get('amount')
-    if isinstance(amount, dict):
-        value = float(amount.get('value', 0) or 0)
-        currency = amount.get('currency')
-    else:
-        value = float(amount or 0)
-        currency = body.get('currency')
-    return status, value, currency
+def charge_card(user, encrypted_data, nonce, amount, tx_ref, currency='NGN'):
+    """Charge a card via the v4 Charges API using client-encrypted details.
+
+    ``encrypted_data`` is the per-field object produced and encrypted by the
+    frontend (``encrypted_card_number``, ``encrypted_expiry_month``,
+    ``encrypted_expiry_year``, ``encrypted_cvv``) and ``nonce`` is its shared
+    12-character AES-GCM nonce. Both are passed through to Flutterwave verbatim
+    when registering the card as a v4 Payment Method — the backend never sees
+    the plain card number, so it never decrypts anything.
+
+    The raw Flutterwave v4 JSON body is returned as-is so callers can surface
+    ``data.next_action`` (redirect / PIN request) and the final charge status
+    ("successful", "pending", "failed", ...) to the client. A non-JSON gateway
+    response raises ``FlutterwaveError`` instead of crashing.
+    """
+    customer_id = create_customer(user)
+    payment_method_id = create_card_payment_method(encrypted_data, nonce)
+    if not payment_method_id:
+        raise FlutterwaveError('Flutterwave could not register this card for payment.')
+    payload = {
+        'amount': float(amount),
+        'currency': currency,
+        'reference': tx_ref,
+        'customer_id': customer_id,
+        'payment_method_id': payment_method_id,
+        'redirect_url': getattr(settings, 'FRONTEND_URL', ''),
+    }
+    resp = _post(CHARGES_PATH, payload)
+    data = _json_or_raise(resp, 'card charge')
+    if data.get('status') != 'success':
+        logger.error('Flutterwave card charge rejected: %s %s', resp.status_code, resp.text[:300])
+    return data
 
 
 def _parse_charge(body, ref):
@@ -351,49 +410,11 @@ def verify_transaction(transaction_id):
     Raises FlutterwaveVerificationError when the charge is not successful.
     """
     resp = _get(f'/charges/{transaction_id}')
-    data = resp.json() if resp.content else {}
+    data = _json_or_raise(resp, 'charge fetch')
     body = data.get('data') or {}
     if not body:
         raise FlutterwaveVerificationError(f"Charge {transaction_id} not found.")
     return _parse_charge(body, transaction_id)
-
-
-def verify_checkout_session_status(session_id, expected_amount, expected_currency='NGN'):
-    """Verify a v4 checkout session succeeded and matched the expected charge.
-
-    Retrieves the session and, because the session itself does not carry the
-    payment status, looks up the charge created under it by reference. Returns a
-    normalized result (same shape as ``_parse_charge``) or raises.
-    """
-    body = retrieve_checkout_session(session_id)
-    reference = body.get('reference') or ''
-    amount_ok = False
-    try:
-        charged = float(
-            body.get('amount', {}).get('value')
-            if isinstance(body.get('amount'), dict)
-            else body.get('amount') or 0
-        )
-        amount_ok = int(round(charged)) == int(round(float(expected_amount)))
-    except (TypeError, ValueError):
-        amount_ok = False
-    currency = body.get('currency') or expected_currency
-    if currency and currency != expected_currency:
-        raise FlutterwaveVerificationError(
-            f"Checkout session {session_id} currency mismatch ({currency})."
-        )
-    if not amount_ok:
-        raise FlutterwaveVerificationError(
-            f"Checkout session {session_id} amount mismatch."
-        )
-    return {
-        'status': 'successful',
-        'amount': charged,
-        'currency': currency,
-        'id': session_id,
-        'flw_ref': session_id,
-        'tx_ref': reference or session_id,
-    }
 
 
 def verify_transaction_by_reference(tx_ref):
@@ -406,7 +427,7 @@ def verify_transaction_by_reference(tx_ref):
     body = None
     for query in (f'/charges?tx_ref={tx_ref}', f'/charges?reference={tx_ref}'):
         resp = _get(query)
-        data = resp.json() if resp.content else {}
+        data = _json_or_raise(resp, 'charge lookup by reference')
         items = data.get('data') or []
         if isinstance(items, dict):
             items = [items]

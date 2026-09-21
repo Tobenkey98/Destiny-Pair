@@ -53,6 +53,7 @@ jobs:
             cat > .env <<EOF
             VITE_GOOGLE_CLIENT_ID=${{ secrets.VITE_GOOGLE_CLIENT_ID }}
             VITE_FACEBOOK_APP_ID=${{ secrets.VITE_FACEBOOK_APP_ID }}
+            VITE_FLW_ENCRYPTION_KEY=${{ secrets.VITE_FLW_ENCRYPTION_KEY }}
             EOF
             # ----------------------------------------
             

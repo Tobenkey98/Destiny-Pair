@@ -57,7 +57,6 @@ def _initialize_checkout(gateway, user, plan, reference, payment_id):
     result = flutterwave.initialize_transaction(
         user, plan, reference,
         redirect_url=_checkout_callback(gateway, plan.slug, reference),
-        callback_url=f"{settings.FRONTEND_URL}/api/payments/flutterwave-webhook/",
     )
     return {
         'checkout_url': result.get('checkout_url', ''),
