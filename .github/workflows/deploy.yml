@@ -13,6 +13,7 @@ jobs:
     # input below) so the server's Backend/.env can be kept in sync with
     # live configuration on every deploy. Empty values default to live mode.
     env:
+      FLUTTERWAVE_SECRET_KEY: ${{ secrets.FLUTTERWAVE_SECRET_KEY }}
       FLUTTERWAVE_CLIENT_ID: ${{ secrets.FLUTTERWAVE_CLIENT_ID }}
       FLUTTERWAVE_CLIENT_SECRET: ${{ secrets.FLUTTERWAVE_CLIENT_SECRET }}
       FLUTTERWAVE_ENCRYPTION_KEY: ${{ secrets.FLUTTERWAVE_ENCRYPTION_KEY }}
@@ -28,7 +29,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: FLUTTERWAVE_CLIENT_ID,FLUTTERWAVE_CLIENT_SECRET,FLUTTERWAVE_ENCRYPTION_KEY,FLUTTERWAVE_PUBLIC_KEY,FLUTTERWAVE_SECRET_HASH,FLUTTERWAVE_SANDBOX,FRONTEND_URL
+          envs: FLUTTERWAVE_SECRET_KEY,FLUTTERWAVE_CLIENT_ID,FLUTTERWAVE_CLIENT_SECRET,FLUTTERWAVE_ENCRYPTION_KEY,FLUTTERWAVE_PUBLIC_KEY,FLUTTERWAVE_SECRET_HASH,FLUTTERWAVE_SANDBOX,FRONTEND_URL
           script: |
             # Fail the run on the first error so a broken deploy can never
             # report success (appleboy/ssh-action does not set -e by default,
@@ -82,6 +83,7 @@ jobs:
             env = Path('.env')
 
             KEYS = (
+                'FLUTTERWAVE_SECRET_KEY',
                 'FLUTTERWAVE_CLIENT_ID',
                 'FLUTTERWAVE_CLIENT_SECRET',
                 'FLUTTERWAVE_ENCRYPTION_KEY',
@@ -95,8 +97,9 @@ jobs:
                     set_key(str(env), key, value, quote_mode='always')
             # Only force live mode when real live credentials are configured.
             has_live_creds = bool(
-                os.environ.get('FLUTTERWAVE_CLIENT_ID')
-                and os.environ.get('FLUTTERWAVE_CLIENT_SECRET')
+                os.environ.get('FLUTTERWAVE_SECRET_KEY')
+                or (os.environ.get('FLUTTERWAVE_CLIENT_ID')
+                    and os.environ.get('FLUTTERWAVE_CLIENT_SECRET'))
             )
             if has_live_creds:
                 # Stale sandbox flag: reset (empty -> live API).

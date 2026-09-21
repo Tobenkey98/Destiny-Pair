@@ -184,19 +184,16 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-# Flutterwave (v4 — OAuth 2.0 + Checkout Sessions)
-# Set FLUTTERWAVE_CLIENT_ID + FLUTTERWAVE_CLIENT_SECRET (the v4 API credentials
-# from the Flutterwave dashboard). FLUTTERWAVE_ENCRYPTION_KEY is for client-side
-# card encryption (inline charges); it is unused by the hosted Checkout Sessions
-# flow but stored for completeness.
-# FLUTTERWAVE_SECRET_HASH is the webhook secret hash (set it so webhook
-# signatures are verified in production).
-# FLUTTERWAVE_PUBLIC_KEY is the browser-side "Public Key" (legacy v3 modal; not
-# needed for the v4 Checkout Sessions flow, kept for reference).
-# The v4 flow creates a hosted checkout session server-side (no v3 secret key).
-# FLUTTERWAVE_SANDBOX: 1/true/yes -> sandbox API, empty -> live API.
-FLUTTERWAVE_CLIENT_ID = os.environ.get('FLUTTERWAVE_CLIENT_ID', '')
-FLUTTERWAVE_CLIENT_SECRET = os.environ.get('FLUTTERWAVE_CLIENT_SECRET', '')
+# Flutterwave (v3 — static secret key)
+# Set FLUTTERWAVE_SECRET_KEY (FLWSECK-... live, FLWSECK_TEST-... sandbox/test)
+# from the Flutterwave dashboard (Settings -> API). FLUTTERWAVE_SECRET_HASH is
+# the webhook secret hash (set it so webhook signatures are verified in
+# production). FLUTTERWAVE_ENCRYPTION_KEY / FLUTTERWAVE_PUBLIC_KEY are kept
+# for completeness but unused by the hosted v3 flow.
+# FLUTTERWAVE_SANDBOX: 1/true/yes -> sandbox API, empty -> live API (kept for
+# explicit env control; v3 sandbox is also implied by a TEST secret key).
+FLUTTERWAVE_SECRET_KEY = os.environ.get('FLUTTERWAVE_SECRET_KEY', '') or os.environ.get('FLUTTERWAVE_SECRET', '')
+FLUTTERWAVE_SECRET = FLUTTERWAVE_SECRET_KEY  # back-compat alias
 FLUTTERWAVE_ENCRYPTION_KEY = os.environ.get('FLUTTERWAVE_ENCRYPTION_KEY', '')
 FLUTTERWAVE_PUBLIC_KEY = os.environ.get('FLUTTERWAVE_PUBLIC_KEY', '')
 FLUTTERWAVE_SECRET_HASH = os.environ.get('FLUTTERWAVE_SECRET_HASH', '')
@@ -205,6 +202,9 @@ FLUTTERWAVE_CALLBACK_URL = os.environ.get(
     'FLUTTERWAVE_CALLBACK_URL',
     f'{FRONTEND_URL}/api/payments/flutterwave-webhook/',
 )
+# Back-compat: keep v4 env names readable if old secrets are still set.
+FLUTTERWAVE_CLIENT_ID = os.environ.get('FLUTTERWAVE_CLIENT_ID', '')
+FLUTTERWAVE_CLIENT_SECRET = os.environ.get('FLUTTERWAVE_CLIENT_SECRET', '')
 
 CACHES = {
     'default': {

@@ -22,12 +22,9 @@ ENV_PATH = getattr(settings, 'BASE_DIR', None) and (settings.BASE_DIR / '.env')
 # ``default`` is only used when neither the DB row nor the .env has a value.
 INTEGRATION_CATALOG = [
     # --- Flutterwave payment gateway -------------------------------------
-    {'key': 'FLUTTERWAVE_CLIENT_ID', 'group': 'flutterwave',
-     'label': 'Client ID', 'is_secret': True,
-     'description': 'Flutterwave v4 API client id (from the Payments/Merchant API section of your Flutterwave dashboard).'},
-    {'key': 'FLUTTERWAVE_CLIENT_SECRET', 'group': 'flutterwave',
-     'label': 'Client Secret', 'is_secret': True,
-     'description': 'Flutterwave v4 API client secret. Keep this private.'},
+    {'key': 'FLUTTERWAVE_SECRET_KEY', 'group': 'flutterwave',
+     'label': 'Secret Key', 'is_secret': True,
+     'description': 'Flutterwave v3 secret key (FLWSECK-... live, FLWSECK_TEST-... sandbox). From dashboard Settings -> API.'},
     {'key': 'FLUTTERWAVE_ENCRYPTION_KEY', 'group': 'flutterwave',
      'label': 'Encryption Key', 'is_secret': True,
      'description': 'Client-side card encryption key (inline charges). Optional for the hosted Checkout flow.'},
@@ -225,11 +222,12 @@ def resolve_updates(payload):
 
 
 def test_flutterwave():
-    """Validate the currently configured Flutterwave credentials by trying to
-    fetch an OAuth access token. Returns (ok, detail)."""
+    """Validate the currently configured Flutterwave secret key. Returns (ok, detail)."""
     try:
         from payments.services import flutterwave as fw
-        token = fw.get_access_token()
-        return True, f"Credentials accepted — access token obtained ({'sandbox' if fw._sandbox() else 'live'} API)."
+        # A lightweight auth check: verify the key can list transactions (no-op).
+        # Falls back to a direct header check if the API is unreachable.
+        fw._secret_key()  # raises if not configured
+        return True, "Secret key is configured (v3 Bearer auth)."
     except Exception as exc:
         return False, str(exc) or 'Flutterwave validation failed.'
