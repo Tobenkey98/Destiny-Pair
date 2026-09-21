@@ -295,16 +295,19 @@ def initialize_transaction(user, plan, payment_reference, redirect_url=None):
             f'Flutterwave checkout session create failed: {resp.status_code} {resp.text[:200]}'
         )
 
-    if not body.get('checkout_url'):
-        logger.error('Flutterwave checkout session returned no checkout_url: %s', resp.text[:300])
+    # Grab the URL using 'link' (Flutterwave's standard) or fallback to 'checkout_url'
+    checkout_url = body.get('link') or body.get('checkout_url')
+
+    if not checkout_url:
+        logger.error('Flutterwave checkout session returned no link: %s', resp.text[:300])
         raise FlutterwaveError(
-            'Flutterwave created a checkout session but returned no hosted checkout_url. '
-            'Enable the hosted Checkout (Checkout Sessions) feature on your Flutterwave account.'
+            'Flutterwave created a checkout session but returned no hosted link. '
+            'Please verify your API payload.'
         )
 
     amount = body.get('amount')
     return {
-        'checkout_url': body['checkout_url'],
+        'checkout_url': checkout_url,
         'checkout_id': body.get('id', ''),
         'amount': float(amount.get('value')) if isinstance(amount, dict) else float(amount or plan.price),
         'currency': body.get('currency', 'NGN'),
