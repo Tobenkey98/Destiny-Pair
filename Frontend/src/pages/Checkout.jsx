@@ -152,7 +152,7 @@ function Checkout() {
       if (err.data?.error === "CONSENT_REQUIRED") {
         setError("Please review and accept the Terms of Use and the Refund & Cancellation Policy to continue.");
       } else if (err.data?.error === "GATEWAY_UNAVAILABLE") {
-        setError("This payment method is temporarily unavailable. Please try the other one or come back later.");
+        setError(err.data?.detail || "This payment method is temporarily unavailable. Please try the other one or come back later.");
       } else {
         setError(err.data?.error || err.message || "Could not start checkout.");
       }
