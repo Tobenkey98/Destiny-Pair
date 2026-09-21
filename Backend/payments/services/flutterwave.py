@@ -274,39 +274,36 @@ def _fetch_customer_by_email(email):
 
 
 def initialize_transaction(user, plan, payment_reference, redirect_url=None):
-    """Create a Flutterwave v4 Checkout Session and return the hosted URL.
-
-    This is the fully server-side v4 flow: we create (or reuse) a customer and
-    then create a checkout session on Flutterwave. The user is handed the hosted
-    ``checkout_url`` — no v3 browser SDK or public key is needed client-side.
-
-    The session's ``reference`` is our unique payment reference, which Flutterwave
-    carries onto the underlying charge so it can be verified server-side via the
-    v4 Charges API (see ``verify_transaction_by_reference``).
-    """
+    """Create a Flutterwave v4 Checkout Session and return the hosted URL."""
     customer_id = create_customer(user)
+
     payload = {
         'amount': float(plan.price),
         'currency': 'NGN',
         'customer_id': customer_id,
         'redirect_url': redirect_url or getattr(settings, 'FLUTTERWAVE_CALLBACK_URL', ''),
         'reference': payment_reference,
+        'payment_options': 'banktransfer,ussd',  # STRICT RULE: No spaces
         'max_retry_attempts': 3,
     }
+
     resp = _post(CHECKOUT_SESSIONS_PATH, payload)
     data = _json_or_raise(resp, 'checkout session create')
     body = data.get('data') or {}
+
     if data.get('status') != 'success' or not body:
         logger.error('Flutterwave checkout session failed: %s %s', resp.status_code, resp.text[:300])
         raise FlutterwaveError(
             f'Flutterwave checkout session create failed: {resp.status_code} {resp.text[:200]}'
         )
+
     if not body.get('checkout_url'):
         logger.error('Flutterwave checkout session returned no checkout_url: %s', resp.text[:300])
         raise FlutterwaveError(
             'Flutterwave created a checkout session but returned no hosted checkout_url. '
             'Enable the hosted Checkout (Checkout Sessions) feature on your Flutterwave account.'
         )
+
     amount = body.get('amount')
     return {
         'checkout_url': body['checkout_url'],
