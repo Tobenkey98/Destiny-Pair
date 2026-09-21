@@ -17,7 +17,7 @@ function formatExpiry(value) {
   return digits.length > 2 ? `${digits.slice(0, 2)}/${digits.slice(2)}` : digits;
 }
 
-function CheckoutForm({ plan, onSuccess, onPinSubmit, requireConsent }) {
+function CheckoutForm({ plan, onSuccess, onPinSubmit, requireConsent, disabled }) {
   const [cardNumber, setCardNumber] = useState("");
   const [expiry, setExpiry] = useState("");
   const [cvv, setCvv] = useState("");
@@ -29,7 +29,7 @@ function CheckoutForm({ plan, onSuccess, onPinSubmit, requireConsent }) {
 
   const encryptionKey = getEncryptionKey();
   const amount = plan ? (plan.price_display || `\u20A6${Number(plan.price).toLocaleString()}`) : "";
-  const ready = Boolean(encryptionKey && consentChecked && phase === "idle");
+  const ready = Boolean(encryptionKey && consentChecked && phase === "idle" && !disabled);
 
   function handleGatewayResponse(data) {
     const status = data?.status || "";
