@@ -23,6 +23,14 @@ from payments.services.activation import activate_paid_subscription
 logger = logging.getLogger(__name__)
 
 BASE_URL = 'https://api.flutterwave.com/v3'
+
+
+def _sandbox():
+    from admins.services.integration_service import get_bool_value, get_value
+    raw = get_value('FLUTTERWAVE_SANDBOX', '')
+    if raw == '':
+        return getattr(settings, 'FLUTTERWAVE_SANDBOX', False)
+    return get_bool_value('FLUTTERWAVE_SANDBOX', False)
 EVENT_CHARGE_COMPLETED = 'charge.completed'
 
 

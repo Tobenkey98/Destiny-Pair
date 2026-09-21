@@ -102,11 +102,12 @@ function Checkout() {
         })
         .catch((err) => {
           const code = err.data?.error;
+          const detail = err.data?.detail || err.data?.message || "";
           if (triesLeft > 0 && (code === "PAYMENT_NOT_SUCCESSFUL" || code === "GATEWAY_UNAVAILABLE")) {
             setTimeout(() => attempt(triesLeft - 1), 3000);
             return;
           }
-          setError(code || err.message || "We could not confirm your payment.");
+          setError(detail || code || err.message || "We could not confirm your payment.");
           // A definitively unsuccessful / mismatched payment is shown as "declined".
           if (code === "PAYMENT_NOT_SUCCESSFUL" || code === "AMOUNT_MISMATCH") {
             setPhase("declined");
@@ -152,9 +153,9 @@ function Checkout() {
       if (err.data?.error === "CONSENT_REQUIRED") {
         setError("Please review and accept the Terms of Use and the Refund & Cancellation Policy to continue.");
       } else if (err.data?.error === "GATEWAY_UNAVAILABLE") {
-        setError(err.data?.detail || "This payment method is temporarily unavailable. Please try the other one or come back later.");
+        setError(err.data?.detail || err.data?.message || "This payment method is temporarily unavailable. Please try again in a moment.");
       } else {
-        setError(err.data?.error || err.message || "Could not start checkout.");
+        setError(err.data?.detail || err.data?.error || err.message || "Could not start checkout.");
       }
       setPhase("idle");
     }
@@ -340,9 +341,25 @@ function Checkout() {
                           <div>
                             <p>{error}</p>
                             {phase === "error" && (
-                              <button onClick={() => { setPhase("idle"); setError(""); }} className="mt-2 font-bold underline">
-                                Retry verification
-                              </button>
+                              <div className="mt-3 flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => { setPhase("idle"); setError(""); }}
+                                  className="px-4 py-2 rounded-full bg-background border border-destructive/30 font-bold hover:bg-secondary transition text-xs"
+                                >
+                                  Retry verification
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    sessionStorage.removeItem("checkout_reference");
+                                    sessionStorage.removeItem("checkout_gateway");
+                                    setError("");
+                                    setPhase("idle");
+                                  }}
+                                  className="px-4 py-2 rounded-full bg-emerald text-[color:var(--gold-royal)] font-bold shadow-soft hover:shadow-glow transition text-xs"
+                                >
+                                  Start new payment
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>

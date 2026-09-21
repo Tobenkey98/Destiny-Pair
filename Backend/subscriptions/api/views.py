@@ -4,6 +4,7 @@ import uuid
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, permissions, status
 
 logger = logging.getLogger(__name__)
@@ -165,19 +166,30 @@ class SubscribeView(APIView):
         ).order_by('-created_at').first()
 
         if existing and existing.reference:
-            reference = existing.reference
-            try:
-                result = _initialize_checkout(
-                    gateway, request.user, plan, reference, existing.id,
-                )
-                return Response({
-                    'gateway': gateway,
-                    'reference': reference,
-                    'payment_id': existing.id,
-                    **result,
-                })
-            except (flutterwave.FlutterwaveError,):
-                pass  # fall through and create a fresh checkout
+            age_seconds = (timezone.now() - existing.created_at).total_seconds() if existing.created_at else 0
+            # If the pending was created very recently (< 60s) and the user
+            # immediately retries (e.g. closed the hosted page), reuse it so
+            # Flutterwave sees the same tx_ref. After 60s, treat it as stale:
+            # mark it failed and create a fresh reference to avoid
+            # "duplicate tx_ref" and to allow clean retries after network/bank
+            # issues or a closed checkout.
+            if age_seconds < 60:
+                reference = existing.reference
+                try:
+                    result = _initialize_checkout(
+                        gateway, request.user, plan, reference, existing.id,
+                    )
+                    return Response({
+                        'gateway': gateway,
+                        'reference': reference,
+                        'payment_id': existing.id,
+                        **result,
+                    })
+                except (flutterwave.FlutterwaveError,):
+                    pass  # fall through and create a fresh checkout
+            else:
+                existing.status = 'failed'
+                existing.save(update_fields=['status'])
 
         reference = create_payment_reference()
         payment = Payment.objects.create(
