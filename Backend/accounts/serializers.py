@@ -1,8 +1,8 @@
-from rest_framework import serializers
+﻿from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 
-from profiles.models import Denomination
+from profiles.models import Denomination, Vibe, Hobby, Language, LocationOption
 
 User = get_user_model()
 
@@ -43,6 +43,26 @@ class UserSerializer(serializers.ModelSerializer):
         source='denomination.name', read_only=True, default=None
     )
     custom_denomination = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    vibes = serializers.PrimaryKeyRelatedField(
+        queryset=Vibe.objects.filter(is_active=True), many=True, required=False
+    )
+    vibes_detail = serializers.SerializerMethodField(read_only=True)
+    hobbies_m2m = serializers.PrimaryKeyRelatedField(
+        queryset=Hobby.objects.filter(is_active=True), many=True, required=False
+    )
+    hobbies_m2m_detail = serializers.SerializerMethodField(read_only=True)
+    languages_m2m = serializers.PrimaryKeyRelatedField(
+        queryset=Language.objects.filter(is_active=True), many=True, required=False
+    )
+    languages_m2m_detail = serializers.SerializerMethodField(read_only=True)
+    preferred_locations = serializers.PrimaryKeyRelatedField(
+        queryset=LocationOption.objects.filter(is_active=True), many=True, required=False
+    )
+    preferred_locations_detail = serializers.SerializerMethodField(read_only=True)
+    profile_completion = serializers.SerializerMethodField(read_only=True)
+    preferred_age = serializers.SerializerMethodField(read_only=True)
+    preferred_height = serializers.SerializerMethodField(read_only=True)
+    preferred_weight = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = User
@@ -52,27 +72,86 @@ class UserSerializer(serializers.ModelSerializer):
             'faith', 'denomination', 'denomination_name', 'place_of_worship',
             'highest_qualification', 'institution', 'profession', 'workplace',
             'genotype', 'blood_group', 'love_language',
-            'preferred_age_min', 'preferred_age_max',
+            'preferred_age_min', 'preferred_age_max', 'preferred_age',
             'interests', 'hobbies', 'short_bio',
             'about_self', 'seeking_description',
-            'is_verified', 'is_profile_completed',
+            'is_verified', 'is_profile_completed', 'profile_completion',
             'marital_status', 'state_of_residence', 'state_of_origin',
-            'ethnic_group',
-            'weight', 'height', 'complexion', 'looking_for',
-            'preferred_location', 'deal_breakers',
+            'ethnic_group', 'nationality',
+            'weight', 'height', 'height_cm', 'weight_kg', 'complexion', 'looking_for',
+            'preferred_location', 'preferred_locations', 'preferred_locations_detail',
+            'deal_breakers',
             'willing_to_relocate', 'has_children', 'number_of_children',
             'languages_spoken', 'personality_traits',
             'alcohol', 'smoking',
-            'preferred_height_min', 'preferred_height_max',
+            'preferred_height_min', 'preferred_height_max', 'preferred_height',
+            'preferred_weight_min', 'preferred_weight_max', 'preferred_weight',
             'preferred_tribe',
+            'vibes', 'vibes_detail', 'hobbies_m2m', 'hobbies_m2m_detail',
+            'languages_m2m', 'languages_m2m_detail', 'custom_hobby',
             'date_joined', 'primary_photo', 'cover_photo',
             'custom_denomination',
         )
         read_only_fields = ('id', 'public_id', 'is_verified', 'is_profile_completed', 'date_joined')
 
+    def validate(self, attrs):
+        # Cross-field validation for ranges
+        preferred_age_min = attrs.get('preferred_age_min', getattr(self.instance, 'preferred_age_min', None) if self.instance else None)
+        preferred_age_max = attrs.get('preferred_age_max', getattr(self.instance, 'preferred_age_max', None) if self.instance else None)
+        if preferred_age_min is not None and preferred_age_max is not None:
+            if int(preferred_age_min) > int(preferred_age_max):
+                raise serializers.ValidationError({'preferred_age_min': 'Minimum age must be less than or equal to maximum age'})
+            if int(preferred_age_min) < 18 or int(preferred_age_max) > 80:
+                raise serializers.ValidationError({'preferred_age_min': 'Age must be between 18 and 80'})
+        preferred_height_min = attrs.get('preferred_height_min', getattr(self.instance, 'preferred_height_min', None) if self.instance else None)
+        preferred_height_max = attrs.get('preferred_height_max', getattr(self.instance, 'preferred_height_max', None) if self.instance else None)
+        if preferred_height_min is not None and preferred_height_max is not None:
+            if int(preferred_height_min) > int(preferred_height_max):
+                raise serializers.ValidationError({'preferred_height_min': 'Minimum height must be less than or equal to maximum height'})
+            if int(preferred_height_min) < 100 or int(preferred_height_max) > 250:
+                raise serializers.ValidationError({'preferred_height_min': 'Height must be between 100 and 250 cm'})
+            if int(preferred_height_min) <= 0 or int(preferred_height_max) <= 0:
+                raise serializers.ValidationError({'preferred_height_min': 'Height must be positive'})
+        preferred_weight_min = attrs.get('preferred_weight_min', getattr(self.instance, 'preferred_weight_min', None) if self.instance else None)
+        preferred_weight_max = attrs.get('preferred_weight_max', getattr(self.instance, 'preferred_weight_max', None) if self.instance else None)
+        if preferred_weight_min is not None and preferred_weight_max is not None:
+            if int(preferred_weight_min) > int(preferred_weight_max):
+                raise serializers.ValidationError({'preferred_weight_min': 'Minimum weight must be less than or equal to maximum weight'})
+            if int(preferred_weight_min) < 30 or int(preferred_weight_max) > 300:
+                raise serializers.ValidationError({'preferred_weight_min': 'Weight must be between 30 and 300 kg'})
+            if int(preferred_weight_min) <= 0 or int(preferred_weight_max) <= 0:
+                raise serializers.ValidationError({'preferred_weight_min': 'Weight must be positive'})
+        # Vibes max 5
+        if 'vibes' in attrs and len(attrs['vibes']) > 5:
+            raise serializers.ValidationError({'vibes': 'You can select maximum 5 vibes'})
+        if 'hobbies_m2m' in attrs and len(attrs['hobbies_m2m']) > 7:
+            raise serializers.ValidationError({'hobbies_m2m': 'You can select maximum 7 hobbies'})
+        if 'height_cm' in attrs and attrs['height_cm'] is not None:
+            v = attrs['height_cm']
+            if v < 100 or v > 250:
+                raise serializers.ValidationError({'height_cm': 'Height must be between 100 and 250 cm'})
+        if 'weight_kg' in attrs and attrs['weight_kg'] is not None:
+            v = float(attrs['weight_kg'])
+            if v < 30 or v > 300:
+                raise serializers.ValidationError({'weight_kg': 'Weight must be between 30 and 300 kg'})
+        return attrs
+
     def update(self, instance, validated_data):
         custom = validated_data.pop('custom_denomination', None)
+        # Handle M2M separately to support partial updates correctly
+        vibes = validated_data.pop('vibes', None)
+        hobbies_m2m = validated_data.pop('hobbies_m2m', None)
+        languages_m2m = validated_data.pop('languages_m2m', None)
+        preferred_locations = validated_data.pop('preferred_locations', None)
         instance = super().update(instance, validated_data)
+        if vibes is not None:
+            instance.vibes.set(vibes)
+        if hobbies_m2m is not None:
+            instance.hobbies_m2m.set(hobbies_m2m)
+        if languages_m2m is not None:
+            instance.languages_m2m.set(languages_m2m)
+        if preferred_locations is not None:
+            instance.preferred_locations.set(preferred_locations)
         if custom:
             from profiles.services import DenominationService
             DenominationService.create_pending(name=custom, user=instance)
@@ -94,6 +173,52 @@ class UserSerializer(serializers.ModelSerializer):
             if request:
                 return request.build_absolute_uri(cover.image.url)
             return cover.image.url
+        return None
+
+    def get_vibes_detail(self, obj):
+        try:
+            return [{'id': v.id, 'name': v.name, 'slug': v.slug} for v in obj.vibes.filter(is_active=True)]
+        except Exception:
+            return []
+
+    def get_hobbies_m2m_detail(self, obj):
+        try:
+            return [{'id': h.id, 'name': h.name, 'slug': h.slug} for h in obj.hobbies_m2m.filter(is_active=True)]
+        except Exception:
+            return []
+
+    def get_languages_m2m_detail(self, obj):
+        try:
+            return [{'id': l.id, 'name': l.name, 'slug': l.slug} for l in obj.languages_m2m.filter(is_active=True)]
+        except Exception:
+            return []
+
+    def get_preferred_locations_detail(self, obj):
+        try:
+            return [{'id': loc.id, 'name': loc.name, 'slug': loc.slug, 'category': loc.category} for loc in obj.preferred_locations.filter(is_active=True)]
+        except Exception:
+            return []
+
+    def get_profile_completion(self, obj):
+        try:
+            from profiles.profile_completion import calculate_profile_completion
+            return calculate_profile_completion(obj)
+        except Exception:
+            return {"percentage": 0, "is_complete": False, "missing_fields": []}
+
+    def get_preferred_age(self, obj):
+        if obj.preferred_age_min is not None and obj.preferred_age_max is not None:
+            return {"min": obj.preferred_age_min, "max": obj.preferred_age_max}
+        return None
+
+    def get_preferred_height(self, obj):
+        if obj.preferred_height_min is not None and obj.preferred_height_max is not None:
+            return {"min": obj.preferred_height_min, "max": obj.preferred_height_max, "unit": "cm"}
+        return None
+
+    def get_preferred_weight(self, obj):
+        if obj.preferred_weight_min is not None and obj.preferred_weight_max is not None:
+            return {"min": obj.preferred_weight_min, "max": obj.preferred_weight_max, "unit": "kg"}
         return None
 
 

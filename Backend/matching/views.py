@@ -1,4 +1,4 @@
-from django.db.models import Q
+﻿from django.db.models import Q
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 
@@ -29,6 +29,18 @@ class MatchListCreateView(generics.ListCreateAPIView):
         return qs.order_by('-updated_at')
 
     def create(self, request, *args, **kwargs):
+        from profiles.profile_completion import calculate_profile_completion
+        completion = calculate_profile_completion(request.user)
+        if not completion["is_complete"]:
+            return Response(
+                {
+                    "code": "PROFILE_INCOMPLETE",
+                    "message": "Complete your profile before liking or matching.",
+                    "completion_percentage": completion["percentage"],
+                    "missing_fields": completion["missing_fields"],
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         to_user = serializer.validated_data['to_user']
@@ -50,7 +62,7 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Likes are open to every member — anyone can send up to their
+        # Likes are open to every member â€” anyone can send up to their
         # plan's daily like limit (Free: 5/day). Subscriptions gate seeing
         # who liked you and responding, not sending a like.
         existing = Match.objects.filter(from_user=request.user, to_user=to_user).first()
@@ -167,7 +179,7 @@ class MatchListCreateView(generics.ListCreateAPIView):
                 send_request_accepted_email(match.to_user, request.user, conv_id)
             # else: both liked but the sender cannot open a conversation yet
             # (Free plan has a 0 active-conversation limit). Leave both rows
-            # as like requests — the recipient can accept once subscribed.
+            # as like requests â€” the recipient can accept once subscribed.
 
         if new_status == 'liked' and not (reverse and reverse.status == 'liked'):
             # One-sided like = a like request. Notify them by activity feed

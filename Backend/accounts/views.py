@@ -1,4 +1,4 @@
-import secrets
+﻿import secrets
 from datetime import timedelta
 
 from django.conf import settings
@@ -102,7 +102,7 @@ def send_verification_email(user):
     user.verification_code_created_at = timezone.now()
     user.save(update_fields=['verification_code', 'verification_code_created_at'])
 
-    subject = "Your verification code – DestinyPair"
+    subject = "Your verification code â€“ DestinyPair"
     html_message = render_to_string('accounts/verify_email.html', {
         'user': user,
         'code': code,
@@ -401,7 +401,7 @@ class PublicProfileView(generics.RetrieveAPIView):
     """GET /auth/profiles/<public_id>/
 
     Returns a public profile addressed by its non-guessable ``public_id``.
-    Only ``DiscoverSerializer`` (safe, public fields) is exposed — never
+    Only ``DiscoverSerializer`` (safe, public fields) is exposed â€” never
     email, phone, or account settings. Ownership is irrelevant here because
     nothing on this endpoint can modify the account.
     """
@@ -465,6 +465,15 @@ class SuggestionsView(APIView):
         return Response({'suggestions': suggestions[:20]})
 
 
+class ProfileCompletionView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from profiles.profile_completion import calculate_profile_completion
+        data = calculate_profile_completion(request.user)
+        return Response(data)
+
+
 class DiscoverView(APIView):
     """GET /auth/discover/
 
@@ -478,8 +487,22 @@ class DiscoverView(APIView):
         from django.utils import timezone
         from matching.services.filter_engine import get_qualified_candidates
         from matching.services.ranking_engine import rank_candidates
+        from profiles.profile_completion import calculate_profile_completion
 
         user = request.user
+        # Gate: require 100% profile completion
+        completion = calculate_profile_completion(user)
+        if not completion["is_complete"]:
+            return Response(
+                {
+                    "code": "PROFILE_INCOMPLETE",
+                    "message": "Complete your profile before accessing Discover.",
+                    "completion_percentage": completion["percentage"],
+                    "completion": completion,
+                    "missing_fields": completion["missing_fields"],
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         candidates = get_qualified_candidates(user)
         ranked = rank_candidates(user, candidates)
         now = timezone.now()
@@ -535,7 +558,7 @@ class ForgotPasswordView(APIView):
             user.reset_code_created_at = timezone.now()
             user.save(update_fields=['reset_code', 'reset_code_created_at'])
 
-            subject = "Password Reset Code – DestinyPair"
+            subject = "Password Reset Code â€“ DestinyPair"
             html_message = render_to_string('accounts/reset_code_email.html', {
                 'user': user,
                 'code': code,

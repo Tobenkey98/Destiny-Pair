@@ -140,11 +140,16 @@ export default function Discover() {
     setFilters(prev => ({ ...prev, [key]: value }));
   }
 
+  const [profileBlocked, setProfileBlocked] = useState(null);
   useEffect(() => {
     setLoading(true);
     api.discover()
       .then(setProfiles)
-      .catch(() => {})
+      .catch((err) => {
+        if (err.data?.code === "PROFILE_INCOMPLETE") {
+          setProfileBlocked(err.data);
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -182,6 +187,10 @@ export default function Discover() {
         setMatchedConvId(match.conversation_id || null);
       }
     } catch (err) {
+      if (err.data?.code === "PROFILE_INCOMPLETE") {
+        setProfileBlocked(err.data);
+        return;
+      }
       console.error("Like failed:", err);
       const reason = err.data?.reason || err.data?.error;
       let msg = err.data?.detail || err.data?.error || err.message || "Could not send your like. Please try again.";
@@ -268,12 +277,27 @@ export default function Discover() {
         onChange={updateFilter}
       />
 
+      {/* Profile incomplete wall */}
+      {profileBlocked && (
+        <motion.div initial={{opacity:0, y:12}} animate={{opacity:1,y:0}} className="rounded-3xl bg-background border border-border/60 shadow-soft p-8 sm:p-10 text-center">
+          <div className="h-16 w-16 rounded-2xl bg-amber-100 flex items-center justify-center mx-auto mb-4"><Sparkles className="h-8 w-8 text-amber-600"/></div>
+          <h2 className="font-display text-2xl font-bold">Complete your profile to discover</h2>
+          <p className="text-muted-foreground mt-2">You are {profileBlocked.completion_percentage||profileBlocked.completion?.percentage||0}% complete. Finish the missing fields to unlock Discover.</p>
+          {profileBlocked.missing_fields?.length>0 && (
+            <div className="mt-4 flex flex-wrap gap-2 justify-center">
+              {profileBlocked.missing_fields.map(f=> <span key={f} className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs font-medium">{f.replace(/_/g," ")}</span>)}
+            </div>
+          )}
+          <button onClick={()=> navigate("/dashboard/profile")} className="mt-6 px-8 py-3 rounded-full bg-foreground text-background font-bold hover:shadow-glow transition">Complete Profile</button>
+        </motion.div>
+      )}
+
       {/* Main content */}
-      {loading ? (
+      {!profileBlocked && loading ? (
         <LoadingState />
-      ) : profiles.length === 0 ? (
+      ) : !profileBlocked && profiles.length === 0 ? (
         <EmptyState onAdjustFilters={() => setFiltersOpen(true)} />
-      ) : (
+      ) : !profileBlocked && (
         <div className="relative flex flex-col items-center">
           {/* Carousel area */}
           <div className="relative w-full h-[600px] sm:h-[660px] md:h-[700px]">

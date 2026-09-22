@@ -3,8 +3,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Denomination, Testimonial
-from .serializers import DenominationSerializer, TestimonialSerializer
+from .models import Denomination, Testimonial, Vibe, Hobby, Language, LocationOption
+from .serializers import DenominationSerializer, TestimonialSerializer, VibeSerializer, HobbySerializer, LanguageSerializer, LocationOptionSerializer
 from .services import DenominationService, TestimonialService
 
 from django.conf import settings
@@ -128,3 +128,35 @@ class TestimonialListView(generics.ListAPIView):
 
     def get_queryset(self):
         return TestimonialService.get_active()
+
+
+class VibeListView(generics.ListAPIView):
+    serializer_class = VibeSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return Vibe.objects.filter(is_active=True).order_by('name')
+
+
+class HobbyListView(generics.ListAPIView):
+    serializer_class = HobbySerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return Hobby.objects.filter(is_active=True).order_by('name')
+
+
+class LanguageListView(generics.ListAPIView):
+    serializer_class = LanguageSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return Language.objects.filter(is_active=True).order_by('name')
+
+
+class LocationOptionListView(generics.ListAPIView):
+    serializer_class = LocationOptionSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def get_queryset(self):
+        return LocationOption.objects.filter(is_active=True).order_by('category', 'name')

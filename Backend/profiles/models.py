@@ -137,3 +137,85 @@ class CoverPhoto(models.Model):
     )
     image = models.ImageField(upload_to='covers/')
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class Vibe(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Vibe'
+        verbose_name_plural = 'Vibes'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name) or uuid.uuid4().hex[:8]
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class Hobby(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Hobby'
+        verbose_name_plural = 'Hobbies'
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name) or uuid.uuid4().hex[:8]
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class Language(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name) or uuid.uuid4().hex[:8]
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
+class LocationOption(models.Model):
+    CATEGORY_CHOICES = [
+        ('state', 'Nigerian State'),
+        ('anywhere_nigeria', 'Anywhere in Nigeria'),
+        ('outside_nigeria', 'Outside Nigeria'),
+    ]
+    name = models.CharField(max_length=100, unique=True)
+    slug = models.SlugField(max_length=100, unique=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='state')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['category', 'name']
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.name) or uuid.uuid4().hex[:8]
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name

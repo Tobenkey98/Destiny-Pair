@@ -10,29 +10,20 @@ import { useAuth } from "../../context/AuthContext";
 import CoverCropModal from "../../components/CoverCropModal";
 import { api, getUserAccessToken } from "../../lib/api";
 
-const PROFILE_FIELDS = [
-  "phone", "date_of_birth", "gender", "city_state",
-  "faith", "denomination", "ethnic_group",
-  "highest_qualification", "institution", "profession",
-  "genotype", "blood_group", "love_language",
-  "preferred_age_min", "preferred_age_max",
-  "weight", "height", "complexion", "looking_for",
-  "marital_status", "preferred_location",
-  "willing_to_relocate", "has_children",
-  "alcohol", "smoking",
-  "preferred_tribe",
-  "interests", "hobbies", "short_bio",
-  "about_self", "seeking_description",
-];
-
-function computeProfileCompletion(user) {
-  if (!user) return 0;
-  const filled = PROFILE_FIELDS.filter(f => {
-    const v = user[f];
-    if (v === true || v === false) return true;
-    return v && v.toString().trim();
-  }).length;
-  return Math.round((filled / PROFILE_FIELDS.length) * 100);
+function useProfileCompletion(user){
+  const [pct, setPct] = useState(user?.profile_completion?.percentage ?? 0);
+  const [missing, setMissing] = useState(user?.profile_completion?.missing_fields ?? []);
+  useEffect(()=>{
+    if(user?.profile_completion){
+      setPct(user.profile_completion.percentage);
+      setMissing(user.profile_completion.missing_fields||[]);
+      return;
+    }
+    let cancelled=false;
+    api.getProfileCompletion().then(d=>{ if(!cancelled){ setPct(d.percentage); setMissing(d.missing_fields||[]);}}).catch(()=>{});
+    return ()=>{ cancelled=true; };
+  },[user]);
+  return {pct, missing};
 }
 
 function CompletionRing({ value, size = 100, strokeWidth = 6, color = "var(--emerald-deep)" }) {
@@ -99,7 +90,7 @@ export default function Overview() {
 
   const initial = (user?.first_name?.[0] || user?.email?.[0] || "U").toUpperCase();
   const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "User";
-  const profilePct = computeProfileCompletion(user);
+  const {pct: profilePct, missing: profileMissing} = useProfileCompletion(user);
   const isVerified = user?.is_verified;
   const primaryPhoto = photos.find((p) => p.is_primary);
   const coverPhoto = user?.cover_photo;

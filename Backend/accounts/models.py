@@ -1,5 +1,6 @@
 import uuid
 
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
@@ -86,8 +87,8 @@ class User(AbstractUser):
     genotype = models.CharField(max_length=10, blank=True)
     blood_group = models.CharField(max_length=5, blank=True)
     love_language = models.CharField(max_length=50, blank=True)
-    preferred_age_min = models.IntegerField(null=True, blank=True)
-    preferred_age_max = models.IntegerField(null=True, blank=True)
+    preferred_age_min = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(18), MaxValueValidator(80)])
+    preferred_age_max = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(18), MaxValueValidator(80)])
 
     interests = models.TextField(blank=True)
     hobbies = models.TextField(blank=True)
@@ -113,12 +114,39 @@ class User(AbstractUser):
     personality_traits = models.TextField(blank=True)
     alcohol = models.CharField(max_length=50, blank=True)
     smoking = models.CharField(max_length=50, blank=True)
-    preferred_height_min = models.IntegerField(null=True, blank=True)
-    preferred_height_max = models.IntegerField(null=True, blank=True)
+    preferred_height_min = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(100), MaxValueValidator(250)])
+    preferred_height_max = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(100), MaxValueValidator(250)])
     preferred_tribe = models.TextField(blank=True)
 
     about_self = models.TextField(blank=True)
     seeking_description = models.TextField(blank=True)
+
+    # --- New normalized profile fields (v2) ---
+    nationality = models.CharField(max_length=100, blank=True, default='')
+    height_cm = models.PositiveIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(100), MaxValueValidator(250)],
+        help_text='Height in centimetres'
+    )
+    weight_kg = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(30), MaxValueValidator(300)],
+        help_text='Weight in kilograms'
+    )
+    preferred_weight_min = models.PositiveIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(30), MaxValueValidator(300)],
+    )
+    preferred_weight_max = models.PositiveIntegerField(
+        null=True, blank=True,
+        validators=[MinValueValidator(30), MaxValueValidator(300)],
+    )
+    custom_hobby = models.CharField(max_length=100, blank=True, default='', help_text='Custom hobby when Other is selected')
+    # New M2M - normalized vocabularies
+    vibes = models.ManyToManyField('profiles.Vibe', blank=True, related_name='users')
+    hobbies_m2m = models.ManyToManyField('profiles.Hobby', blank=True, related_name='users_hobbies')
+    languages_m2m = models.ManyToManyField('profiles.Language', blank=True, related_name='users_languages')
+    preferred_locations = models.ManyToManyField('profiles.LocationOption', blank=True, related_name='preferred_by_users')
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []

@@ -225,6 +225,21 @@ export const api = {
   verifyPayment(payload) {
     return request('/subscriptions/verify-payment/', { method: 'POST', body: JSON.stringify(payload) });
   },
+  getProfileCompletion() {
+    return request('/auth/profile/completion/', { method: 'GET' });
+  },
+  getVibes() {
+    return request('/auth/vibes/', { method: 'GET' });
+  },
+  getHobbies() {
+    return request('/auth/hobbies/', { method: 'GET' });
+  },
+  getLanguages() {
+    return request('/auth/languages/', { method: 'GET' });
+  },
+  getLocations() {
+    return request('/auth/locations/', { method: 'GET' });
+  },
   uploadAudio(formData) {
     const token = getUserAccessToken();
     return fetch('/api/auth/audio-upload/', {

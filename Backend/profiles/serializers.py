@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Photo, CoverPhoto, Denomination, PendingDenomination, Testimonial
+from .models import Photo, CoverPhoto, Denomination, PendingDenomination, Testimonial, Vibe, Hobby, Language, LocationOption
 
 
 class PhotoSerializer(serializers.ModelSerializer):
@@ -76,3 +76,31 @@ class TestimonialCreateSerializer(serializers.ModelSerializer):
         if not (value or '').strip():
             raise serializers.ValidationError("Testimonial name cannot be empty")
         return (value or '').strip()
+
+
+class VibeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Vibe
+        fields = ('id', 'name', 'slug')
+        read_only_fields = ('id', 'slug')
+
+
+class HobbySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Hobby
+        fields = ('id', 'name', 'slug')
+        read_only_fields = ('id', 'slug')
+
+
+class LanguageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Language
+        fields = ('id', 'name', 'slug')
+        read_only_fields = ('id', 'slug')
+
+
+class LocationOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LocationOption
+        fields = ('id', 'name', 'slug', 'category')
+        read_only_fields = ('id', 'slug', 'category')

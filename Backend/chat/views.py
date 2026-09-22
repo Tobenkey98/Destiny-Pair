@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status
+﻿from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -36,6 +36,10 @@ class MessageListCreateView(generics.ListCreateAPIView):
         return Message.objects.none()
 
     def perform_create(self, serializer):
+        from profiles.profile_completion import calculate_profile_completion
+        completion = calculate_profile_completion(self.request.user)
+        if not completion["is_complete"]:
+            raise PermissionError("Complete your profile before starting chats.")
         from subscriptions.services import usage_service
 
         message = serializer.validated_data.get('message', '')

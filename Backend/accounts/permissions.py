@@ -1,4 +1,4 @@
-from rest_framework.permissions import BasePermission, IsAuthenticated
+﻿from rest_framework.permissions import BasePermission, IsAuthenticated
 from .services.role_service import RoleService
 
 
@@ -105,3 +105,19 @@ class IsAdminAndActive(BasePermission):
         if not hasattr(request.user, 'admin_profile'):
             return False
         return request.user.admin_profile.is_active
+
+
+class IsProfileComplete(BasePermission):
+    message = {
+        'code': 'PROFILE_INCOMPLETE',
+        'message': 'Complete your profile before accessing Discover.',
+    }
+
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        try:
+            from profiles.profile_completion import is_profile_complete
+            return is_profile_complete(request.user)
+        except Exception:
+            return False
