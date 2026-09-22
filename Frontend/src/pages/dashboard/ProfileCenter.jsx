@@ -98,7 +98,7 @@ const STEPS = [
 ];
 
 export default function ProfileCenter(){
-  const { user, updateProfile } = useAuth();
+  const { user, loading: authLoading, updateProfile } = useAuth();
   const [step, setStep] = useState(1);
   const [photos, setPhotos] = useState([]);
   const [denominations, setDenominations] = useState([]);
@@ -229,7 +229,15 @@ export default function ProfileCenter(){
     }catch{} setCoverUploading(false);
   }
 
-  if(!user) return <div className="max-w-xl mx-auto flex items-center justify-center min-h-[60vh]"><FourSquare color="var(--primary)" size="medium" text="" textColor=""/></div>;
+  if(authLoading) return <div className="max-w-xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-3"><FourSquare color="var(--primary)" size="medium" text="" textColor=""/><p className="text-sm text-muted-foreground">Loading your profile...</p></div>;
+  if(!user) return (
+    <div className="max-w-xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
+      <div className="h-16 w-16 rounded-2xl bg-amber-100 flex items-center justify-center"><User className="h-8 w-8 text-amber-600"/></div>
+      <h2 className="font-display text-xl font-bold">Please log in</h2>
+      <p className="text-sm text-muted-foreground">You need to be logged in to view your profile.</p>
+      <Link to="/login" className="px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold">Go to Login</Link>
+    </div>
+  );
 
   const primary=photos.find(p=>p.is_primary);
   const coverPhoto=user?.cover_photo;
