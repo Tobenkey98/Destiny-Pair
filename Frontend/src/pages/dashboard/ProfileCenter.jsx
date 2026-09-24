@@ -123,6 +123,7 @@ export default function ProfileCenter(){
   const [cropModal, setCropModal] = useState(null);
   const coverInputRef = useRef(null);
   const coverRef = useRef(null);
+  const stepsRef = useRef(null);
   const [form, setForm] = useState({});
 
   useEffect(()=>{
@@ -289,26 +290,34 @@ export default function ProfileCenter(){
         </div>
       </div>
 
-      {/* Step pills */}
-      <div className="mt-6 flex gap-2 overflow-x-auto scrollbar-none pb-2">
-        {STEPS.map(s=> (
-          <button key={s.id} onClick={()=> setStep(s.id)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${step===s.id?"bg-[#2D2323] text-white border-[#2D2323] dark:bg-[#D3A345] dark:text-[#2D2323] dark:border-[#D3A345]":"bg-card text-muted-foreground border-border hover:bg-accent"}`}>
-            {s.id}. {s.title}
-          </button>
-        ))}
-      </div>
-
-      {/* Step content - swipeable carousel */}
+      {/* Step pills - carousel with next/previous when overflowing */}
       <div className="relative mt-6">
-        {/* Carousel arrows */}
-        <button onClick={()=> setStep(s=> Math.max(1, s-1))} disabled={step===1} className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-4 z-10 h-9 w-9 rounded-full bg-card border border-border shadow-soft flex items-center justify-center hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed">
+        <button
+          onClick={()=> stepsRef.current?.scrollBy({left: -160, behavior: 'smooth'})}
+          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1 z-10 h-8 w-8 rounded-full bg-card border border-border shadow-soft flex items-center justify-center hover:bg-accent"
+          aria-label="Previous steps"
+        >
           <ChevronLeft className="h-4 w-4"/>
         </button>
-        <button onClick={()=> setStep(s=> Math.min(STEPS.length, s+1))} disabled={step===STEPS.length} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-4 z-10 h-9 w-9 rounded-full bg-card border border-border shadow-soft flex items-center justify-center hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed">
+        <button
+          onClick={()=> stepsRef.current?.scrollBy({left: 160, behavior: 'smooth'})}
+          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1 z-10 h-8 w-8 rounded-full bg-card border border-border shadow-soft flex items-center justify-center hover:bg-accent"
+          aria-label="Next steps"
+        >
           <ChevronRight className="h-4 w-4"/>
         </button>
-        <AnimatePresence mode="wait">
-          <motion.div key={step} initial={{opacity:0, x:16}} animate={{opacity:1,x:0}} exit={{opacity:0, x:-16}} transition={{duration:0.25}} drag="x" dragConstraints={{left:0,right:0}} dragElastic={0.2} onDragEnd={(e,{offset})=>{ if(offset.x<-80 && step<STEPS.length) setStep(s=> s+1); if(offset.x>80 && step>1) setStep(s=> s-1); }} className="rounded-3xl bg-card border border-border/60 shadow-soft p-5 sm:p-6 touch-pan-y">
+        <div ref={stepsRef} className="flex gap-2 overflow-x-auto scrollbar-none pb-2 scroll-smooth snap-x snap-mandatory px-0 sm:px-8">
+          {STEPS.map(s=> (
+            <button key={s.id} onClick={()=> setStep(s.id)} className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${step===s.id?"bg-[#2D2323] text-white border-[#2D2323] dark:bg-[#D3A345] dark:text-[#2D2323] dark:border-[#D3A345]":"bg-card text-muted-foreground border-border hover:bg-accent"}`}>
+              {s.id}. {s.title}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Step content */}
+      <AnimatePresence mode="wait">
+        <motion.div key={step} initial={{opacity:0, x:12}} animate={{opacity:1,x:0}} exit={{opacity:0, x:-12}} transition={{duration:0.2}} className="mt-6 rounded-3xl bg-card border border-border/60 shadow-soft p-5 sm:p-6">
           
           {step===1 && (
             <div className="space-y-5">
@@ -537,14 +546,7 @@ export default function ProfileCenter(){
           )}
 
         </motion.div>
-        </AnimatePresence>
-        {/* Carousel dots */}
-        <div className="flex items-center justify-center gap-1.5 mt-4">
-          {STEPS.map(s=> (
-            <button key={s.id} onClick={()=> setStep(s.id)} className={`h-1.5 rounded-full transition-all ${step===s.id?"w-6 bg-[#611C2B] dark:bg-[#D3A345]":"w-1.5 bg-foreground/20 hover:bg-foreground/30"}`} aria-label={`Go to ${s.title}`}/>
-          ))}
-        </div>
-      </div>
+      </AnimatePresence>
 
       {/* Save bar */}
       <div className="sticky bottom-0 mt-6 -mx-4 px-4 py-3 bg-background/90 backdrop-blur-xl border-t border-border/50 flex items-center justify-between gap-3 supports-[backdrop-filter]:bg-background/80">
