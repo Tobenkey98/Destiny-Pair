@@ -52,7 +52,7 @@ function ProgressBar({ pct }){
 
 function Badge({ active, onClick, children, disabled }){
   return (
-    <button type="button" onClick={onClick} disabled={disabled} className={`px-4 py-2 rounded-full text-sm font-medium border transition-all shrink-0 ${active?"bg-[#611C2B] text-white border-[#611C2B] shadow": "bg-white text-foreground border-border hover:border-[#611C2B]/40 hover:bg-[#F4EFEA]"} ${disabled&&!active?"opacity-40 cursor-not-allowed":""}`}>
+    <button type="button" onClick={onClick} disabled={disabled} className={`px-4 py-2 rounded-full text-sm font-medium border transition-all shrink-0 ${active?"bg-[#611C2B] text-white border-[#611C2B] shadow dark:bg-[#D3A345] dark:text-[#2D2323] dark:border-[#D3A345]": "bg-card text-card-foreground border-border hover:border-[#611C2B]/40 hover:bg-accent dark:hover:bg-accent"} ${disabled&&!active?"opacity-40 cursor-not-allowed":""}`}>
       {children}
     </button>
   );
@@ -75,11 +75,11 @@ function RangeSlider({ min, max, minVal, maxVal, onMinChange, onMaxChange, unit 
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs font-semibold text-muted-foreground">Min</label>
-          <input type="number" min={min} max={max} value={minVal} onChange={e=> onMinChange(Number(e.target.value)||min)} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-white text-sm focus:border-[#D3A345] outline-none"/>
+          <input type="number" min={min} max={max} value={minVal} onChange={e=> onMinChange(Number(e.target.value)||min)} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:border-[#D3A345] outline-none"/>
         </div>
         <div>
           <label className="text-xs font-semibold text-muted-foreground">Max</label>
-          <input type="number" min={min} max={max} value={maxVal} onChange={e=> onMaxChange(Number(e.target.value)||max)} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-white text-sm focus:border-[#D3A345] outline-none"/>
+          <input type="number" min={min} max={max} value={maxVal} onChange={e=> onMaxChange(Number(e.target.value)||max)} className="mt-1 w-full px-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:border-[#D3A345] outline-none"/>
         </div>
       </div>
     </div>
@@ -232,7 +232,7 @@ export default function ProfileCenter(){
   if(authLoading) return <div className="max-w-xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-3"><FourSquare color="var(--primary)" size="medium" text="" textColor=""/><p className="text-sm text-muted-foreground">Loading your profile...</p></div>;
   if(!user) return (
     <div className="max-w-xl mx-auto flex flex-col items-center justify-center min-h-[60vh] gap-4 p-6 text-center">
-      <div className="h-16 w-16 rounded-2xl bg-amber-100 flex items-center justify-center"><User className="h-8 w-8 text-amber-600"/></div>
+      <div className="h-16 w-16 rounded-2xl bg-amber-500/15 dark:bg-amber-500/20 flex items-center justify-center"><User className="h-8 w-8 text-amber-600"/></div>
       <h2 className="font-display text-xl font-bold">Please log in</h2>
       <p className="text-sm text-muted-foreground">You need to be logged in to view your profile.</p>
       <Link to="/login" className="px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold">Go to Login</Link>
@@ -255,10 +255,10 @@ export default function ProfileCenter(){
   return (
     <div className="max-w-xl mx-auto px-4 pb-24">
       {/* Header progress */}
-      <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-3 bg-[#F4EFEA]/80 backdrop-blur-xl border-b border-border/40">
+      <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/40 supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center justify-between mb-3">
           <Link to="/dashboard" className="text-sm font-semibold text-muted-foreground flex items-center gap-1"><ChevronLeft className="h-4 w-4"/>Overview</Link>
-          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-white border shadow-sm">{step}/{STEPS.length}</span>
+          <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-card border shadow-sm text-card-foreground">{step}/{STEPS.length}</span>
         </div>
         <ProgressBar pct={pct}/>
         <p className="text-xs text-muted-foreground mt-2 text-center">
@@ -267,14 +267,14 @@ export default function ProfileCenter(){
       </div>
 
       {/* Cover + avatar quick */}
-      <div className="mt-6 rounded-3xl overflow-hidden bg-white border border-border/60 shadow-soft">
+      <div className="mt-6 rounded-3xl overflow-hidden bg-card border border-border/60 shadow-soft">
         <div ref={coverRef} className="relative h-32 w-full bg-gradient-to-br from-[#611C2B]/20 to-[#D3A345]/20">
           {coverPhoto && <img src={coverPhoto} alt="Cover" className="absolute inset-0 h-full w-full object-cover"/>}
           <button onClick={()=> coverInputRef.current?.click()} disabled={coverUploading} className="absolute top-3 right-3 p-2 rounded-xl bg-black/40 text-white backdrop-blur text-xs">{coverUploading?"...":<Camera className="h-4 w-4"/>}</button>
           <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden"/>
         </div>
         <div className="px-5 pb-5 flex gap-4 -mt-8 relative">
-          <div className="h-20 w-20 rounded-2xl ring-4 ring-white shadow overflow-hidden bg-gradient-to-br from-[#611C2B] to-[#D3A345] shrink-0">
+          <div className="h-20 w-20 rounded-2xl ring-4 ring-background shadow overflow-hidden bg-gradient-to-br from-[#611C2B] to-[#D3A345] shrink-0">
             {primary? <img src={primary.image} alt="" className="h-full w-full object-cover"/> : <div className="h-full w-full grid place-items-center text-white font-bold text-xl">{(user.first_name?.[0]||user.email[0]||"U").toUpperCase()}</div>}
           </div>
           <div className="pt-8 flex-1 min-w-0">
@@ -287,7 +287,7 @@ export default function ProfileCenter(){
       {/* Step pills */}
       <div className="mt-6 flex gap-2 overflow-x-auto scrollbar-none pb-2">
         {STEPS.map(s=> (
-          <button key={s.id} onClick={()=> setStep(s.id)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${step===s.id?"bg-[#2D2323] text-white border-[#2D2323]":"bg-white text-muted-foreground border-border"}`}>
+          <button key={s.id} onClick={()=> setStep(s.id)} className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${step===s.id?"bg-[#2D2323] text-white border-[#2D2323] dark:bg-[#D3A345] dark:text-[#2D2323] dark:border-[#D3A345]":"bg-card text-muted-foreground border-border hover:bg-accent"}`}>
             {s.id}. {s.title}
           </button>
         ))}
@@ -295,7 +295,7 @@ export default function ProfileCenter(){
 
       {/* Step content */}
       <AnimatePresence mode="wait">
-        <motion.div key={step} initial={{opacity:0, x:12}} animate={{opacity:1,x:0}} exit={{opacity:0, x:-12}} transition={{duration:0.2}} className="mt-6 rounded-3xl bg-white border border-border/60 shadow-soft p-5 sm:p-6">
+        <motion.div key={step} initial={{opacity:0, x:12}} animate={{opacity:1,x:0}} exit={{opacity:0, x:-12}} transition={{duration:0.2}} className="mt-6 rounded-3xl bg-card border border-border/60 shadow-soft p-5 sm:p-6">
           
           {step===1 && (
             <div className="space-y-5">
@@ -387,7 +387,7 @@ export default function ProfileCenter(){
                 </div>
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                  <input value={searchHobby} onChange={e=> setSearchHobby(e.target.value)} placeholder="Search hobbies" className="pl-8 pr-3 py-2 rounded-full border border-border bg-white text-sm w-32 focus:w-40 transition-all focus:border-[#D3A345] outline-none"/>
+                  <input value={searchHobby} onChange={e=> setSearchHobby(e.target.value)} placeholder="Search hobbies" className="pl-8 pr-3 py-2 rounded-full border border-border bg-background text-foreground text-sm w-32 focus:w-40 transition-all focus:border-[#D3A345] outline-none"/>
                 </div>
               </div>
               {Object.entries(groupedHobbies).map(([cat, list])=>(
@@ -424,7 +424,7 @@ export default function ProfileCenter(){
               <p className="text-xs text-muted-foreground">Select the languages you speak comfortably.</p>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                <input value={searchLang} onChange={e=> setSearchLang(e.target.value)} placeholder="Search languages" className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-white text-sm focus:border-[#D3A345] outline-none"/>
+                <input value={searchLang} onChange={e=> setSearchLang(e.target.value)} placeholder="Search languages" className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:border-[#D3A345] outline-none"/>
               </div>
               <div className="flex flex-wrap gap-2">
                 {filteredLangs.map(l=>{
@@ -493,7 +493,7 @@ export default function ProfileCenter(){
                 <p className="text-xs text-muted-foreground mb-2">Where are you open to meeting someone?</p>
                 <div className="relative mb-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground"/>
-                  <input value={searchLocation} onChange={e=> setSearchLocation(e.target.value)} placeholder="Search locations" className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-white text-sm focus:border-[#D3A345] outline-none"/>
+                  <input value={searchLocation} onChange={e=> setSearchLocation(e.target.value)} placeholder="Search locations" className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-border bg-background text-foreground text-sm focus:border-[#D3A345] outline-none"/>
                 </div>
                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto p-1">
                   {filteredLocs.map(loc=>{
@@ -527,8 +527,8 @@ export default function ProfileCenter(){
       </AnimatePresence>
 
       {/* Save bar */}
-      <div className="sticky bottom-0 mt-6 -mx-4 px-4 py-3 bg-white/90 backdrop-blur-xl border-t border-border/50 flex items-center justify-between gap-3">
-        <button onClick={()=> setStep(s=> Math.max(1, s-1))} disabled={step===1} className="px-5 py-2.5 rounded-full border border-border bg-white text-sm font-semibold disabled:opacity-40 flex items-center gap-1"><ChevronLeft className="h-4 w-4"/>Back</button>
+      <div className="sticky bottom-0 mt-6 -mx-4 px-4 py-3 bg-background/90 backdrop-blur-xl border-t border-border/50 flex items-center justify-between gap-3 supports-[backdrop-filter]:bg-background/80">
+        <button onClick={()=> setStep(s=> Math.max(1, s-1))} disabled={step===1} className="px-5 py-2.5 rounded-full border border-border bg-card text-card-foreground text-sm font-semibold disabled:opacity-40 flex items-center gap-1"><ChevronLeft className="h-4 w-4"/>Back</button>
         <div className="flex items-center gap-2">
           {saveMsg && <span className="text-xs font-medium text-emerald-700 hidden sm:block">{saveMsg}</span>}
           {step < STEPS.length ? (
@@ -557,7 +557,7 @@ export default function ProfileCenter(){
 
       {/* Final review */}
       {step===9 && (
-        <motion.div initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} className="mt-6 rounded-3xl bg-white border border-border/60 shadow-soft p-6">
+        <motion.div initial={{opacity:0,y:12}} animate={{opacity:1,y:0}} className="mt-6 rounded-3xl bg-card border border-border/60 shadow-soft p-6">
           <h3 className="font-display text-lg font-bold">Review Your Profile</h3>
           <div className="mt-4 space-y-3 text-sm">
             <ReviewRow label="Photo" value={photos.find(p=>p.is_primary)?"✓ Primary set":"Missing"} onEdit={()=> setStep(1)}/>
@@ -570,7 +570,7 @@ export default function ProfileCenter(){
             <ReviewRow label="Preferences" value={`${form.preferred_age_min}-${form.preferred_age_max} years, ${form.preferred_height_min}-${form.preferred_height_max} cm`} onEdit={()=> setStep(7)}/>
             <ReviewRow label="Compatibility" value={`${form.genotype||"—"} / ${form.blood_group||"—"}`} onEdit={()=> setStep(8)}/>
           </div>
-          <div className="mt-6 p-4 rounded-2xl bg-[#F4EFEA] border border-border text-center">
+          <div className="mt-6 p-4 rounded-2xl bg-muted border border-border text-center">
             {isComplete ? (
               <>
                 <p className="font-bold text-emerald-700">✓ Your profile is complete.</p>
@@ -579,7 +579,7 @@ export default function ProfileCenter(){
             ) : (
               <>
                 <p className="text-sm font-semibold">Remaining: {missing.join(", ").replace(/_/g," ")}</p>
-                <button onClick={()=> setStep(1)} className="mt-3 px-6 py-2.5 rounded-full bg-white border border-border text-sm font-bold">Complete Profile</button>
+                <button onClick={()=> setStep(1)} className="mt-3 px-6 py-2.5 rounded-full bg-card border border-border text-card-foreground text-sm font-bold hover:bg-accent">Complete Profile</button>
               </>
             )}
           </div>
@@ -587,7 +587,7 @@ export default function ProfileCenter(){
       )}
 
       {cropModal && <CoverCropModal src={cropModal.url} ratio={cropModal.ratio} onSave={handleCropSave} onClose={()=>{ URL.revokeObjectURL(cropModal.url); setCropModal(null);}}/>}
-      <style>{`.input{width:100%; padding:0.65rem 0.85rem; border-radius:1rem; background:white; border:1px solid hsl(var(--border)); font-size:0.9rem; outline:none} .input:focus{border-color:#D3A345}`}</style>
+      <style>{`.input{width:100%; padding:0.65rem 0.85rem; border-radius:1rem; background:hsl(var(--background)); color:hsl(var(--foreground)); border:1px solid hsl(var(--border)); font-size:0.9rem; outline:none} .input:focus{border-color:#D3A345} .input::placeholder{color:hsl(var(--muted-foreground))}`}</style>
     </div>
   );
 }
