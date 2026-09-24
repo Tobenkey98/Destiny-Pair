@@ -1,14 +1,164 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Heart, MessageCircle, Search, ChevronDown,
   Sparkles, Users, Filter, ChevronLeft, ChevronRight, X,
+  MapPin, Bookmark, BookmarkCheck, BadgeCheck, Eye,
 } from "lucide-react";
 import { FourSquare } from "react-loading-indicators";
-import ProfileCard from "../../components/ProfileCard";
 import ProfileDetailModal from "../../components/ProfileDetailModal";
 import { api } from "../../lib/api";
+
+const PAGE_SIZE = 6;
+
+function ageOf(dob) {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  return new Date().getFullYear() - d.getFullYear();
+}
+
+function scoreColor(score) {
+  if (score == null) return "#8A8F98";
+  if (score >= 80) return "#4ADE80";
+  if (score >= 60) return "#0B7A5B";
+  if (score >= 40) return "#C8A96E";
+  return "#8A8F98";
+}
+
+function DiscoverGridCard({ profile, index, saved, onLike, onDislike, onSave, onViewFull }) {
+  const [imgError, setImgError] = useState(false);
+  const name = profile.first_name || "User";
+  const age = ageOf(profile.date_of_birth);
+  const initials = ((profile.first_name?.[0] || "") + (profile.last_name?.[0] || "")).slice(0, 2) || "U";
+  const score = typeof profile.compatibility_score === "number" ? profile.compatibility_score : null;
+  const color = scoreColor(score);
+  const showImg = profile.primary_photo && !imgError;
+
+  return (
+    <motion.article
+      layout
+      initial={{ opacity: 0, y: 28, scale: 0.97 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.92, transition: { duration: 0.18 } }}
+      transition={{ duration: 0.35, delay: Math.min(index, 5) * 0.06, ease: "easeOut" }}
+      whileHover={{ y: -6 }}
+      className="group rounded-3xl bg-card border border-border/50 shadow-soft hover:shadow-luxe transition-shadow overflow-hidden flex flex-col"
+    >
+      <div className="relative aspect-[4/5] overflow-hidden bg-gradient-to-br from-emerald/15 via-background to-gold/15">
+        {showImg ? (
+          <img
+            src={profile.primary_photo}
+            alt={name}
+            loading="lazy"
+            onError={() => setImgError(true)}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="h-20 w-20 rounded-full bg-gradient-to-br from-emerald to-gold p-0.5">
+              <div className="h-full w-full rounded-full bg-card flex items-center justify-center">
+                <span className="text-2xl font-bold text-gradient-luxury">{initials}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-black/45 to-transparent pointer-events-none" />
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+          {score != null && (
+            <span
+              className="px-2.5 py-1 rounded-full text-[11px] font-bold text-white shadow"
+              style={{ backgroundColor: color }}
+            >
+              {score}% match
+            </span>
+          )}
+          {profile.is_online && (
+            <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/55 text-white text-[10px] font-semibold backdrop-blur-sm">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" /> Online
+            </span>
+          )}
+        </div>
+        <button
+          onClick={() => onSave(profile.id)}
+          aria-label="Save profile"
+          className="absolute top-2.5 right-2.5 h-8 w-8 rounded-full bg-black/45 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/65 transition"
+        >
+          {saved ? <BookmarkCheck className="h-4 w-4" /> : <Bookmark className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => onViewFull(profile)}
+          aria-label="View full profile"
+          className="absolute inset-x-3 bottom-3 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-black/55 backdrop-blur-sm text-white text-xs font-semibold opacity-0 group-hover:opacity-100 transition"
+        >
+          <Eye className="h-3.5 w-3.5" /> Quick view
+        </button>
+      </div>
+
+      <div className="p-4 flex flex-col gap-1.5 flex-1">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <h3 className="font-display text-lg font-bold truncate">
+            {name}{age != null ? `, ${age}` : ""}
+          </h3>
+          {profile.is_verified && <BadgeCheck className="h-4 w-4 shrink-0 text-[color:var(--gold-royal)]" />}
+        </div>
+        {(profile.city_state || profile.state_of_residence) && (
+          <p className="flex items-center gap-1 text-xs text-muted-foreground truncate">
+            <MapPin className="h-3 w-3 shrink-0" /> {profile.city_state || profile.state_of_residence}
+          </p>
+        )}
+        <div className="flex flex-wrap gap-1.5 mt-0.5">
+          {(profile.denomination_name || profile.denomination) && (
+            <span className="px-2 py-0.5 rounded-full bg-emerald/10 text-emerald-dark text-[11px] font-semibold truncate max-w-full">
+              {profile.denomination_name || profile.denomination}
+            </span>
+          )}
+          {profile.profession && (
+            <span className="px-2 py-0.5 rounded-full bg-secondary text-[11px] font-semibold truncate max-w-full">
+              {profile.profession}
+            </span>
+          )}
+        </div>
+        {score != null && (
+          <div className="mt-1.5">
+            <div className="h-1.5 rounded-full bg-foreground/10 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: color }}
+                initial={{ width: 0 }}
+                animate={{ width: `${score}%` }}
+                transition={{ duration: 0.7, delay: 0.2 + Math.min(index, 5) * 0.06 }}
+              />
+            </div>
+          </div>
+        )}
+        <div className="flex items-center gap-2 mt-2.5 pt-1">
+          <button
+            onClick={() => onDislike(profile.id)}
+            aria-label="Skip"
+            className="h-10 w-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-destructive hover:border-destructive/50 transition shrink-0"
+          >
+            <X className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onViewFull(profile)}
+            aria-label="View details"
+            className="h-10 w-10 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-foreground/40 transition shrink-0"
+          >
+            <Eye className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => onLike(profile.id)}
+            className="flex-1 h-10 rounded-full bg-emerald text-white text-sm font-bold flex items-center justify-center gap-1.5 shadow hover:shadow-glow hover:brightness-110 active:scale-95 transition"
+          >
+            <Heart className="h-4 w-4" fill="currentColor" /> Like
+          </button>
+        </div>
+      </div>
+    </motion.article>
+  );
+}
 
 function FilterPanel({ open, onToggle, filters, onChange }) {
   return (
@@ -65,10 +215,6 @@ function FilterPanel({ open, onToggle, filters, onChange }) {
                   Verified Profiles Only
                 </label>
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input type="checkbox" checked={filters.hideViewed} onChange={e => onChange("hideViewed", e.target.checked)} className="rounded border-border text-emerald focus:ring-emerald" />
-                  Hide Viewed
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
                   <input type="checkbox" checked={filters.recentlyActive} onChange={e => onChange("recentlyActive", e.target.checked)} className="rounded border-border text-emerald focus:ring-emerald" />
                   Recently Active
                 </label>
@@ -119,7 +265,6 @@ function LoadingState() {
 export default function Discover() {
   const navigate = useNavigate();
   const [profiles, setProfiles] = useState([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [matchedUser, setMatchedUser] = useState(null);
   const [matchedConvId, setMatchedConvId] = useState(null);
@@ -130,10 +275,13 @@ export default function Discover() {
   const [likeFeedback, setLikeFeedback] = useState(null);
   const [dislikeFeedback, setDislikeFeedback] = useState(null);
   const [likeConvId, setLikeConvId] = useState(null);
+  const [page, setPage] = useState(1);
+  const [pageDir, setPageDir] = useState(0);
+  const gridRef = useRef(null);
 
   const [filters, setFilters] = useState({
     ageMin: "", ageMax: "", denomination: "", occupation: "",
-    maritalStatus: "", verifiedOnly: false, hideViewed: false, recentlyActive: false,
+    maritalStatus: "", verifiedOnly: false, recentlyActive: false,
   });
 
   function updateFilter(key, value) {
@@ -153,21 +301,54 @@ export default function Discover() {
       .finally(() => setLoading(false));
   }, []);
 
-  function goToProfile(index) {
-    if (index < 0 || index >= profiles.length) return;
-    setCurrentIndex(index);
-  }
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return profiles.filter((p) => {
+      if (q) {
+        const name = `${p.first_name || ""} ${p.last_name || ""}`.toLowerCase();
+        if (!name.includes(q)) return false;
+      }
+      if (filters.ageMin !== "" || filters.ageMax !== "") {
+        const age = ageOf(p.date_of_birth);
+        if (age == null) return false;
+        if (filters.ageMin !== "" && age < Number(filters.ageMin)) return false;
+        if (filters.ageMax !== "" && age > Number(filters.ageMax)) return false;
+      }
+      if (filters.denomination) {
+        const d = String(p.denomination_name ?? p.denomination ?? "").toLowerCase();
+        if (!d.includes(filters.denomination.toLowerCase())) return false;
+      }
+      if (filters.occupation) {
+        if (!(p.profession || "").toLowerCase().includes(filters.occupation.toLowerCase())) return false;
+      }
+      if (filters.maritalStatus) {
+        if ((p.marital_status || "").toLowerCase() !== filters.maritalStatus.toLowerCase()) return false;
+      }
+      if (filters.verifiedOnly && !p.is_verified) return false;
+      if (filters.recentlyActive && !p.is_online) return false;
+      return true;
+    });
+  }, [profiles, searchQuery, filters]);
 
-  function goNext() {
-    if (currentIndex < profiles.length - 1) {
-      setCurrentIndex(prev => prev + 1);
-    }
-  }
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 
-  function goPrev() {
-    if (currentIndex > 0) {
-      setCurrentIndex(prev => prev - 1);
-    }
+  useEffect(() => {
+    setPage(1);
+    setPageDir(0);
+  }, [searchQuery, filters]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const pageItems = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  function goPage(n) {
+    const next = Math.min(Math.max(1, n), pageCount);
+    if (next === page) return;
+    setPageDir(next > page ? 1 : -1);
+    setPage(next);
+    gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   async function handleLike(userId) {
@@ -176,11 +357,7 @@ export default function Discover() {
       const match = await api.createMatch({ to_user: userId, status: "liked" });
       setLikeFeedback(userId);
       setTimeout(() => setLikeFeedback(null), 1200);
-      if (currentIndex < profiles.length - 1) {
-        goNext();
-      } else {
-        setProfiles(prev => prev.filter(p => p.id !== userId));
-      }
+      setProfiles(prev => prev.filter(p => p.id !== userId));
       if (match.conversation_id) setLikeConvId(match.conversation_id);
       if (match.status === "matched") {
         setMatchedUser(profile || { first_name: "User" });
@@ -204,11 +381,7 @@ export default function Discover() {
   }
 
   async function handleDislike(userId) {
-    if (currentIndex < profiles.length - 1) {
-      goNext();
-    } else {
-      setProfiles(prev => prev.filter(p => p.id !== userId));
-    }
+    setProfiles(prev => prev.filter(p => p.id !== userId));
 
     setDislikeFeedback(userId);
     setTimeout(() => setDislikeFeedback(null), 1200);
@@ -230,15 +403,8 @@ export default function Discover() {
     api.saveProfile(userId).catch(() => {});
   }
 
-  function getCardPosition(index) {
-    if (index === currentIndex) return "center";
-    if (index === currentIndex - 1) return "previous";
-    if (index === currentIndex + 1) return "next";
-    return "hidden";
-  }
-
   return (
-    <div className="max-w-5xl mx-auto px-4">
+    <div className="max-w-6xl mx-auto px-4">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -248,7 +414,8 @@ export default function Discover() {
         <div>
           <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground">Discover</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {profiles.length} compatible Christian single{profiles.length !== 1 ? "s" : ""}
+            {filtered.length} compatible Christian single{filtered.length !== 1 ? "s" : ""}
+            {pageCount > 1 && ` · Page ${page} of ${pageCount}`}
           </p>
         </div>
         <div className="flex items-center gap-3 w-full sm:w-auto">
@@ -295,62 +462,72 @@ export default function Discover() {
       {/* Main content */}
       {!profileBlocked && loading ? (
         <LoadingState />
-      ) : !profileBlocked && profiles.length === 0 ? (
+      ) : !profileBlocked && filtered.length === 0 ? (
         <EmptyState onAdjustFilters={() => setFiltersOpen(true)} />
       ) : !profileBlocked && (
-        <div className="relative flex flex-col items-center">
-          {/* Carousel area */}
-          <div className="relative w-full h-[600px] sm:h-[660px] md:h-[700px]">
-            <AnimatePresence>
-              {profiles.map((p, i) => (
-                <ProfileCard
-                  key={p.id}
-                  profile={p}
-                  position={getCardPosition(i)}
-                  onLike={handleLike}
-                  onDislike={handleDislike}
-                  onSave={() => handleSave(p.id)}
-                  saved={savedProfiles.has(p.id)}
-                  onViewFull={() => setSelectedProfile(p)}
-                />
+        <div ref={gridRef} className="scroll-mt-24">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={page}
+              initial={{ opacity: 0, x: 48 * (pageDir >= 0 ? 1 : -1) }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -48 * (pageDir >= 0 ? 1 : -1), transition: { duration: 0.18 } }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5"
+            >
+              <AnimatePresence>
+                {pageItems.map((p, i) => (
+                  <DiscoverGridCard
+                    key={p.id}
+                    profile={p}
+                    index={i}
+                    onLike={handleLike}
+                    onDislike={handleDislike}
+                    onSave={() => handleSave(p.id)}
+                    saved={savedProfiles.has(p.id)}
+                    onViewFull={() => setSelectedProfile(p)}
+                  />
+                ))}
+              </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Pagination */}
+          {pageCount > 1 && (
+            <div className="flex items-center justify-center gap-2 mt-8">
+              <button
+                onClick={() => goPage(page - 1)}
+                disabled={page === 1}
+                aria-label="Previous page"
+                className="h-10 w-10 rounded-full border border-border bg-card flex items-center justify-center hover:bg-accent transition disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => goPage(n)}
+                  className={`h-10 min-w-10 px-2 rounded-full text-sm font-bold transition ${
+                    n === page
+                      ? "bg-[#611C2B] text-white dark:bg-[#D3A345] dark:text-[#2D2323] shadow"
+                      : "border border-border bg-card hover:bg-accent"
+                  }`}
+                >
+                  {n}
+                </button>
               ))}
-            </AnimatePresence>
-
-            {/* Nav arrows */}
-            {currentIndex > 0 && (
               <button
-                onClick={goPrev}
-                className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-md flex items-center justify-center hover:bg-background transition text-foreground/70 hover:text-foreground"
+                onClick={() => goPage(page + 1)}
+                disabled={page === pageCount}
+                aria-label="Next page"
+                className="h-10 w-10 rounded-full border border-border bg-card flex items-center justify-center hover:bg-accent transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronRight className="h-4 w-4" />
               </button>
-            )}
-            {currentIndex < profiles.length - 1 && (
-              <button
-                onClick={goNext}
-                className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 z-20 h-10 w-10 rounded-full bg-background/80 backdrop-blur-sm border border-border/50 shadow-md flex items-center justify-center hover:bg-background transition text-foreground/70 hover:text-foreground"
-              >
-                <ChevronRight className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-
-          {/* Navigation dots */}
-          <div className="flex items-center gap-1.5 mt-4">
-            {profiles.slice(0, Math.min(profiles.length, 20)).map((p, i) => (
-              <button
-                key={p.id}
-                onClick={() => goToProfile(i)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${
-                  i === currentIndex ? "w-6 bg-emerald" : "w-1.5 bg-foreground/20 hover:bg-foreground/30"
-                }`}
-              />
-            ))}
-          </div>
-
-          {/* Progress count */}
-          <p className="text-xs text-muted-foreground mt-3">
-            {currentIndex + 1} of {profiles.length}
+            </div>
+          )}
+          <p className="text-center text-xs text-muted-foreground mt-3">
+            Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + pageItems.length} of {filtered.length}
           </p>
         </div>
       )}
