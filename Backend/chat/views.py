@@ -102,7 +102,8 @@ class AudioUploadView(APIView):
         if file.size > max_size:
             return Response({'error': 'Audio too large (max 25MB)'}, status=status.HTTP_400_BAD_REQUEST)
 
-        allowed = ['audio/webm', 'audio/ogg', 'audio/mp3', 'audio/mpeg', 'audio/wav']
+        allowed = ['audio/webm', 'audio/ogg', 'audio/mp3', 'audio/mpeg', 'audio/wav',
+                   'audio/mp4', 'audio/m4a', 'audio/x-m4a', 'audio/aac']
         if file.content_type not in allowed:
             return Response({'error': 'Invalid audio format'}, status=status.HTTP_400_BAD_REQUEST)
 
