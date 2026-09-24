@@ -6,7 +6,6 @@ REQUIRED_FIELDS = [
     "gender",
     "state_of_residence",
     "marital_status",
-    "nationality",
     "denomination",
     "vibes",
     "hobbies",
@@ -30,7 +29,6 @@ FIELD_LABELS = {
     "gender": "Gender",
     "state_of_residence": "State of residence",
     "marital_status": "Relationship status",
-    "nationality": "Nationality",
     "denomination": "Denomination",
     "vibes": "Vibes (select 1-5)",
     "hobbies": "Hobbies (select 1-7)",
@@ -62,8 +60,6 @@ def _check_field(user, field):
         return bool((user.state_of_residence or "").strip())
     if field == "marital_status":
         return bool((user.marital_status or "").strip())
-    if field == "nationality":
-        return bool((user.nationality or "").strip())
     if field == "denomination":
         return bool(user.denomination_id)
     if field == "vibes":

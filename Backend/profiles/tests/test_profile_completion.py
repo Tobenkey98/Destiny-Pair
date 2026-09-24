@@ -133,7 +133,7 @@ class ProfileCompletionTests(TestCase):
 
     def test_discover_gating_incomplete(self):
         # Make incomplete
-        self.user.nationality = ""
+        self.user.about_self = ""
         self.user.save()
         client = APIClient()
         client.force_authenticate(user=self.user)

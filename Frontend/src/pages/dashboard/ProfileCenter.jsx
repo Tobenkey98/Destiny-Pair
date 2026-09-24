@@ -15,7 +15,6 @@ const GENOTYPE_OPTIONS = ["AA","AS","SS","AC","SC","CC"];
 const BLOOD_OPTIONS = ["A+","A-","B+","B-","AB+","AB-","O+","O-"];
 const GENDER_OPTIONS = ["Male","Female"];
 const MARITAL_OPTIONS = ["Single","Never Married","Divorced","Widowed","Separated"];
-const NATIONALITIES = ["Nigerian","Ghanaian","Cameroonian","South African","British","American","Other"];
 const RELATIONSHIP_INTENTIONS = ["Serious Relationship", "Relationship leading to Marriage", "Friendship"];
 const DESCRIBE_TAGS = ["Easygoing","Family-Oriented","Outgoing","Thoughtful","Patient","Confident","Creative","Supportive","Ambitious","Faith-Focused"];
 
@@ -151,7 +150,6 @@ export default function ProfileCenter({ setupMode = false, onComplete } = {}){
         gender: user.gender||"",
         state_of_residence: user.state_of_residence||"",
         marital_status: user.marital_status||"",
-        nationality: user.nationality||"",
         denomination: user.denomination||"",
         custom_denomination: "",
         genotype: user.genotype||"",
@@ -385,7 +383,6 @@ export default function ProfileCenter({ setupMode = false, onComplete } = {}){
                   <Field label="Relationship status *"><select value={form.marital_status} onChange={e=> setForm({...form,marital_status:e.target.value})} className="input"><option value="">Select</option>{MARITAL_OPTIONS.map(o=> <option key={o} value={o}>{o}</option>)}</select></Field>
                 </div>
                 <Field label="State of residence *"><select value={form.state_of_residence} onChange={e=> setForm({...form,state_of_residence:e.target.value})} className="input"><option value="">Select state</option>{states.map(s=> <option key={s} value={s}>{s}</option>)}</select></Field>
-                <Field label="Nationality *"><select value={form.nationality} onChange={e=> setForm({...form,nationality:e.target.value})} className="input"><option value="">Select</option>{NATIONALITIES.map(n=> <option key={n} value={n}>{n}</option>)}</select></Field>
               </div>
             </div>
           )}
@@ -583,7 +580,7 @@ export default function ProfileCenter({ setupMode = false, onComplete } = {}){
           {saveMsg && <span className="text-xs font-medium text-emerald-700 hidden sm:block">{saveMsg}</span>}
           {step < STEPS.length ? (
             <button onClick={async()=>{
-              const map={1:["first_name","last_name","phone","date_of_birth","gender","state_of_residence","marital_status","nationality"], 2:["denomination"], 3:["vibes"], 4:["hobbies_m2m","custom_hobby"], 5:["languages_m2m"], 6:["about_self","seeking_description"], 7:["marital_status","preferred_age_min","preferred_age_max","preferred_height_min","preferred_height_max","preferred_weight_min","preferred_weight_max","preferred_locations"], 8:["genotype","blood_group","height_cm","weight_kg"]};
+              const map={1:["first_name","last_name","phone","date_of_birth","gender","state_of_residence","marital_status"], 2:["denomination"], 3:["vibes"], 4:["hobbies_m2m","custom_hobby"], 5:["languages_m2m"], 6:["about_self","seeking_description"], 7:["marital_status","preferred_age_min","preferred_age_max","preferred_height_min","preferred_height_max","preferred_weight_min","preferred_weight_max","preferred_locations"], 8:["genotype","blood_group","height_cm","weight_kg"]};
               const fields=map[step]||[];
               // simple validation
               if(setupMode && step===1 && !photos.find(p=>p.is_primary)){ alert("Please upload a profile photo and set it as your primary photo to continue."); return; }
@@ -612,7 +609,7 @@ export default function ProfileCenter({ setupMode = false, onComplete } = {}){
           <h3 className="font-display text-lg font-bold">Review Your Profile</h3>
           <div className="mt-4 space-y-3 text-sm">
             <ReviewRow label="Photo" value={photos.find(p=>p.is_primary)?"✓ Primary set":"Missing"} onEdit={()=> setStep(1)}/>
-            <ReviewRow label="Basic" value={`${form.gender||"—"}, ${form.state_of_residence||"—"}, ${form.nationality||"—"}`} onEdit={()=> setStep(1)}/>
+            <ReviewRow label="Basic" value={`${form.gender||"—"}, ${form.state_of_residence||"—"}`} onEdit={()=> setStep(1)}/>
             <ReviewRow label="Faith" value={denominations.find(d=> String(d.id)===String(form.denomination))?.name || "—"} onEdit={()=> setStep(2)}/>
             <ReviewRow label="Vibes" value={`${form.vibes?.length||0}/5`} onEdit={()=> setStep(3)}/>
             <ReviewRow label="Hobbies" value={`${form.hobbies_m2m?.length||0}/7`} onEdit={()=> setStep(4)}/>

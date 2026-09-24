@@ -1,374 +1,384 @@
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
 import {
-  Heart, Shield, Crown, Star, MessageCircle, BookOpen,
-  ArrowRight, Sparkles, User, Check, Compass, Mail, MapPin, Phone,
-  Camera,
+  Heart, ShieldCheck, Crown, MessageCircle, BookOpen, ArrowRight, ArrowUpRight,
+  Sparkles, User, Check, MapPin, BadgeCheck, Camera, Users, Bell,
 } from "lucide-react";
 import { Link, useOutletContext } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
-import CoverCropModal from "../../components/CoverCropModal";
-import { api, getUserAccessToken } from "../../lib/api";
+import { api } from "../../lib/api";
 
-function useProfileCompletion(user){
-  const [pct, setPct] = useState(user?.profile_completion?.percentage ?? 0);
-  const [missing, setMissing] = useState(user?.profile_completion?.missing_fields ?? []);
-  useEffect(()=>{
-    if(user?.profile_completion){
-      setPct(user.profile_completion.percentage);
-      setMissing(user.profile_completion.missing_fields||[]);
-      return;
-    }
-    let cancelled=false;
-    api.getProfileCompletion().then(d=>{ if(!cancelled){ setPct(d.percentage); setMissing(d.missing_fields||[]);}}).catch(()=>{});
-    return ()=>{ cancelled=true; };
-  },[user]);
-  return {pct, missing};
+function greeting() {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
 }
 
-function CompletionRing({ value, size = 100, strokeWidth = 6, color = "var(--emerald-deep)" }) {
-  const r = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * r;
-  const offset = circumference - (value / 100) * circumference;
+function Ring({ value, size = 120, stroke = 10 }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const offset = c - (Math.min(100, Math.max(0, value)) / 100) * c;
   return (
-    <svg width={size} height={size} className="transform -rotate-90">
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={strokeWidth} />
-      <motion.circle
-        cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={strokeWidth}
-        strokeLinecap="round"
-        strokeDasharray={circumference}
-        initial={{ strokeDashoffset: circumference }}
-        animate={{ strokeDashoffset: offset }}
-        transition={{ duration: 1.5, ease: "easeOut" }}
-      />
-    </svg>
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-white/25" />
+        <motion.circle
+          cx={size / 2} cy={size / 2} r={r} fill="none"
+          stroke="url(#journeyRing)" strokeWidth={stroke} strokeLinecap="round"
+          strokeDasharray={c}
+          initial={{ strokeDashoffset: c }}
+          animate={{ strokeDashoffset: offset }}
+          transition={{ duration: 1.4, ease: "easeOut" }}
+        />
+        <defs>
+          <linearGradient id="journeyRing" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#D3A345" />
+            <stop offset="100%" stopColor="#F4EFEA" />
+          </linearGradient>
+        </defs>
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
+        <span className="font-display text-2xl font-bold leading-none">{value}%</span>
+        <span className="text-[10px] uppercase tracking-widest opacity-80 mt-1">complete</span>
+      </div>
+    </div>
   );
 }
 
-function JourneyModule({ m, index }) {
-  const Icon = m.icon;
-  return (
-    <Link to={m.path}>
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.1, duration: 0.6 }}
-        whileHover={{ y: -6, scale: 1.02 }}
-        className="group relative p-5 rounded-3xl bg-background/80 backdrop-blur-xl border border-border/60 shadow-soft hover:shadow-luxe transition-all overflow-hidden"
-      >
-        <div className={`absolute inset-0 bg-gradient-to-br ${m.color} opacity-[0.03] group-hover:opacity-[0.06] transition`} />
-        <div className="relative flex items-start justify-between">
-          <div className={`h-11 w-11 rounded-2xl bg-gradient-to-br ${m.color} flex items-center justify-center shadow-soft`}>
-            <Icon className="h-5 w-5 text-white" />
-          </div>
-          <div className="relative h-14 w-14">
-            <CompletionRing value={m.value} size={56} strokeWidth={4} color={m.value >= 100 ? "var(--gold-royal)" : "var(--emerald-deep)"} />
-            <span className="absolute inset-0 flex items-center justify-center text-xs font-bold text-foreground">{m.value}%</span>
-          </div>
-        </div>
-        <h3 className="mt-4 font-display text-lg font-semibold text-foreground">{m.label}</h3>
-        <p className="text-sm text-muted-foreground">{m.detail}</p>
-      </motion.div>
-    </Link>
-  );
-}
+const QUICK_ACTIONS = [
+  { to: "/dashboard/discover", icon: Sparkles, label: "Discover", hint: "Meet singles" },
+  { to: "/dashboard/matches", icon: Users, label: "Connections", hint: "Likes & matches" },
+  { to: "/dashboard/chat", icon: MessageCircle, label: "Chat", hint: "Conversations" },
+  { to: "/dashboard/counselling", icon: BookOpen, label: "Counselling", hint: "Guidance" },
+];
 
 export default function Overview() {
   const { user } = useAuth();
   const { photos } = useOutletContext();
-  const [coverUploading, setCoverUploading] = useState(false);
-  const coverInputRef = useRef(null);
-  const coverRef = useRef(null);
-  const [cropModal, setCropModal] = useState(null);
-  const canvasRef = useRef(null);
-  const [primaryImgError, setPrimaryImgError] = useState(false);
   const [membership, setMembership] = useState(null);
+  const [completion, setCompletion] = useState(user?.profile_completion || null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     api.getCurrentSubscription().then(setMembership).catch(() => {});
+    api.getUnreadCount().then((d) => setUnread(d.count || 0)).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (user?.profile_completion) {
+      setCompletion(user.profile_completion);
+      return;
+    }
+    let cancelled = false;
+    api.getProfileCompletion()
+      .then((d) => { if (!cancelled) setCompletion(d); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const firstName = user?.first_name || "there";
+  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "DestinyPair member";
   const initial = (user?.first_name?.[0] || user?.email?.[0] || "U").toUpperCase();
-  const fullName = [user?.first_name, user?.last_name].filter(Boolean).join(" ") || "User";
-  const {pct: profilePct, missing: profileMissing} = useProfileCompletion(user);
-  const isVerified = user?.is_verified;
+  const pct = completion?.percentage ?? 0;
+  const missing = completion?.missing_fields || [];
+  const isComplete = completion?.is_complete || false;
   const primaryPhoto = photos.find((p) => p.is_primary);
-  const coverPhoto = user?.cover_photo;
-
-  async function handleCoverUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const rect = coverRef.current?.getBoundingClientRect();
-    const ratio = rect && rect.height ? rect.width / rect.height : 4;
-    setCropModal({ file, url, ratio });
-  }
-
-  async function handleCropSave(croppedBlob) {
-    setCoverUploading(true);
-    setCropModal(null);
-    try {
-      const fd = new FormData();
-      fd.append('image', croppedBlob, 'cover.jpg');
-      const token = getUserAccessToken();
-      await fetch('/api/auth/cover-photo/', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: fd,
-      });
-      window.location.reload();
-    } catch {}
-    setCoverUploading(false);
-  }
-
   const plan = membership?.plan || null;
   const subActive = membership?.subscription?.status === "active";
-  const membershipDetail = plan
-    ? subActive
-      ? `${plan.name} · ${plan.price_display || "Active"}`
-      : `${plan.name} · inactive`
-    : "Free tier";
+  const verified = !!user?.is_verified;
 
-  const modules = [
-    { icon: User, label: "Profile", value: profilePct, color: "from-emerald to-teal-400", detail: `${profilePct}% complete`, path: "/dashboard/profile" },
-    { icon: Shield, label: "Verification", value: isVerified ? 100 : 0, color: "from-gold-royal to-amber-400", detail: isVerified ? "Verified" : "Email not verified", path: "/dashboard/profile" },
-    { icon: Crown, label: "Membership", value: plan ? 100 : 0, color: "from-emerald to-gold-royal", detail: membershipDetail, path: "/membership" },
-    { icon: Star, label: "Profile Quality", value: profilePct, color: "from-amber-warm to-orange-400", detail: profilePct >= 80 ? "Excellent" : profilePct >= 50 ? "Good" : "Needs improvement", path: "/dashboard/discover" },
-    { icon: MessageCircle, label: "Messages", value: 0, color: "from-emerald to-cyan-400", detail: "No messages yet", path: "/dashboard/chat" },
-    { icon: BookOpen, label: "Counselling", value: 0, color: "from-burgundy to-rose-400", detail: "Not started", path: "/dashboard/counselling" },
+  const steps = [
+    {
+      done: verified,
+      title: "Email verified",
+      desc: verified ? "Your email is confirmed." : "Confirm your email to unlock everything.",
+      to: verified ? null : "/dashboard/profile",
+      cta: verified ? null : "Verify",
+    },
+    {
+      done: isComplete,
+      title: "Profile completed",
+      desc: isComplete
+        ? "Your profile is ready for matching."
+        : `${missing.length} item${missing.length === 1 ? "" : "s"} left — ${missing.slice(0, 3).join(", ").replace(/_/g, " ")}${missing.length > 3 ? ", …" : ""}`,
+      to: isComplete ? null : "/dashboard/profile",
+      cta: isComplete ? null : "Continue setup",
+    },
+    {
+      done: subActive,
+      title: "Membership active",
+      desc: subActive ? `${plan?.name || "Plan"} is active.` : "Upgrade for unlimited likes, chats and more.",
+      to: "/membership",
+      cta: subActive ? "Manage" : "View plans",
+    },
   ];
 
   return (
-      <div className="max-w-7xl mx-auto">
-        {/* Cover + Profile header wrapper */}
-        <div className="relative">
-          {/* Cover photo */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-          >
-            <div className="rounded-[2.5rem] overflow-hidden">
-              <div ref={coverRef} className="relative w-full aspect-[16/7] sm:aspect-[16/6] md:aspect-[16/5] bg-gradient-to-br from-emerald/30 to-gold/20">
-                {coverPhoto ? (
-                  <img src={coverPhoto} alt="Cover" className="absolute inset-0 h-full w-full object-cover" onError={(e) => { e.target.style.display = 'none'; }} />
-                ) : (
-                  <div className="absolute inset-0 pattern-dots opacity-[0.08]" />
-                )}
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* HERO */}
+      <motion.section
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#611C2B] via-[#7A2E3F] to-[#8A525E] text-white shadow-luxe"
+      >
+        <div className="absolute inset-0 pattern-dots opacity-10 pointer-events-none" />
+        <div className="absolute -top-20 -right-20 h-72 w-72 rounded-full bg-[#D3A345]/25 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-16 h-64 w-64 rounded-full bg-black/20 blur-3xl pointer-events-none" />
 
-                {/* Cover upload button */}
-                <button
-                  onClick={() => coverInputRef.current?.click()}
-                  disabled={coverUploading}
-                  className="absolute top-3 right-3 sm:top-4 sm:right-4 p-2 rounded-xl bg-black/40 text-white/80 hover:bg-black/60 hover:text-white transition backdrop-blur-sm"
-                >
-                  {coverUploading ? (
-                    <span className="text-xs">Uploading...</span>
-                  ) : (
-                    <Camera className="h-4 w-4" />
-                  )}
-                </button>
-                <input
-                  ref={coverInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCoverUpload}
-                  className="hidden"
-                />
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Profile photo + name — stacked in flow on mobile, overlapping cover on sm+ */}
-          <div className="relative z-50 mt-4 px-2 sm:mt-0 sm:absolute sm:-bottom-16 sm:left-6 md:left-8 sm:px-0 flex flex-col items-center sm:items-end sm:flex-row gap-3 sm:gap-4">
-            <div className="relative">
-              {primaryPhoto && !primaryImgError ? (
-                <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-3xl sm:rounded-[2rem] ring-4 ring-background shadow-luxe overflow-hidden">
-                  <img src={primaryPhoto.image} alt="" className="h-full w-full object-cover" onError={() => setPrimaryImgError(true)} />
-                </div>
+        <div className="relative p-6 sm:p-10 flex flex-col lg:flex-row lg:items-center gap-8">
+          <div className="flex items-start gap-4 sm:gap-5 flex-1 min-w-0">
+            <div className="relative shrink-0">
+              {primaryPhoto ? (
+                <img src={primaryPhoto.image} alt="" className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover ring-2 ring-white/60 shadow-luxe" />
               ) : (
-                <div className="h-24 w-24 sm:h-32 sm:w-32 rounded-3xl sm:rounded-[2rem] ring-4 ring-background shadow-luxe bg-gradient-to-br from-emerald to-gold p-0.5">
-                  <div className="h-full w-full rounded-3xl sm:rounded-[2rem] bg-background flex items-center justify-center">
-                    <span className="text-3xl sm:text-4xl font-bold text-gradient-luxury">{initial}</span>
-                  </div>
+                <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl bg-white/15 backdrop-blur flex items-center justify-center ring-2 ring-white/40">
+                  <span className="text-2xl sm:text-3xl font-bold">{initial}</span>
                 </div>
               )}
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.8, type: "spring" }}
-                className="absolute -bottom-1 -right-1 h-6 w-6 sm:h-7 sm:w-7 rounded-full bg-gold border-2 border-background flex items-center justify-center shadow-glow"
-              >
-                <Check className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-emerald-deep" />
-              </motion.div>
+              {verified && (
+                <span className="absolute -bottom-1.5 -right-1.5 h-6 w-6 rounded-full bg-[#D3A345] flex items-center justify-center ring-2 ring-[#611C2B]">
+                  <BadgeCheck className="h-3.5 w-3.5 text-[#611C2B]" />
+                </span>
+              )}
             </div>
-            <div className="text-center sm:text-left sm:pb-2 min-w-0">
-              <h2 className="font-display text-xl sm:text-2xl font-bold text-foreground drop-shadow-lg truncate">{fullName}</h2>
-              <p className="text-xs sm:text-sm text-foreground/80 drop-shadow truncate">{user?.city_state || ""}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Spacer for the overlapping photo (mobile uses in-flow spacing via mt-4) */}
-        <div className="h-4 sm:h-20" />
-
-      {/* Welcome + details row */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-10 pl-2 sm:pl-0">
-        <div>
-          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }}>
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald/10 dark:bg-gold/20 text-emerald-deep dark:text-gold-royal text-xs font-semibold mb-2">
-              <Sparkles className="h-3 w-3" />
-              Your Relationship Journey
-            </span>
-            <p className="mt-1 text-muted-foreground">Continue where you left off on your path to forever.</p>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="mt-3 flex flex-wrap gap-x-5 gap-y-1"
-          >
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Mail className="h-3.5 w-3.5 text-emerald-deep dark:text-gold-royal" /> {user?.email}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Phone className="h-3.5 w-3.5 text-emerald-deep dark:text-gold-royal" /> {user?.phone || "—"}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5 text-emerald-deep dark:text-gold-royal" /> {user?.city_state || "—"}
-            </span>
-            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Heart className="h-3.5 w-3.5 text-emerald-deep dark:text-gold-royal" /> {user?.faith || "—"}
-            </span>
-          </motion.div>
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.4 }}
-          className="flex items-center gap-4 shrink-0"
-        >
-          <div className="text-right">
-            <p className="text-xs text-muted-foreground">Profile Completion</p>
-            <p className="font-display text-2xl font-bold text-gradient-luxury">{profilePct}%</p>
-          </div>
-          <div className="relative">
-            <CompletionRing value={profilePct} size={72} strokeWidth={5} color="var(--gold-royal)" />
-            <Star className="absolute inset-0 m-auto h-5 w-5 text-gold-royal" fill="currentColor" />
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Progress modules */}
-      <div className="mb-10">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="font-display text-2xl font-bold text-foreground">Your Progress</h2>
-          <Link to="/dashboard/profile" className="text-sm font-semibold text-emerald-deep dark:text-gold-royal flex items-center gap-1">
-            View All <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-          {modules.map((m, i) => (
-            <JourneyModule key={m.label} m={m} index={i} />
-          ))}
-        </div>
-      </div>
-
-      {/* Bottom row */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="p-6 rounded-3xl glass border border-border/60 shadow-soft"
-          >
-            <h3 className="font-display text-xl font-bold text-foreground mb-5">Recent Activity</h3>
-            {user?.date_joined ? (
-              <div className="flex items-center gap-4 p-3 rounded-2xl">
-                <div className="h-10 w-10 rounded-xl bg-emerald/10 text-emerald-deep flex items-center justify-center shrink-0">
-                  <User className="h-4 w-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground/80">
-                    Joined DestinyPair <span className="font-semibold">{new Date(user.date_joined).toLocaleDateString()}</span>
-                  </p>
-                  <p className="text-xs text-muted-foreground">Welcome aboard!</p>
-                </div>
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.2em] text-white/70 font-semibold">
+                {greeting()}, {firstName}
+              </p>
+              <h1 className="mt-1 font-display text-2xl sm:text-4xl font-bold leading-tight truncate">
+                {fullName}
+              </h1>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur font-semibold">
+                  <MapPin className="h-3 w-3" /> {user?.city_state || user?.state_of_residence || "Add location"}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur font-semibold">
+                  <Crown className="h-3 w-3 text-[#D3A345]" /> {plan && subActive ? `${plan.name} · Active` : "Free Member"}
+                </span>
+                {unread > 0 && (
+                  <Link to="/dashboard/notifications" className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#D3A345] text-[#611C2B] font-bold">
+                    <Bell className="h-3 w-3" /> {unread} new
+                  </Link>
+                )}
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No recent activity yet.</p>
-            )}
-          </motion.div>
-        </div>
+            </div>
+          </div>
 
-        <div>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
+          <div className="flex items-center gap-5 shrink-0">
+            <Ring value={pct} />
+            <div className="space-y-3">
+              <p className="text-sm text-white/85 max-w-[220px]">
+                {isComplete
+                  ? "Your profile is ready. Go discover meaningful connections."
+                  : "Finish your profile to unlock Discover and matching."}
+              </p>
+              <Link
+                to={isComplete ? "/dashboard/discover" : "/dashboard/profile"}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#D3A345] text-[#611C2B] text-sm font-bold shadow-glow hover:scale-[1.03] transition"
+              >
+                {isComplete ? "Discover now" : "Complete profile"} <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* QUICK ACTIONS */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+        {QUICK_ACTIONS.map((a, i) => {
+          const Icon = a.icon;
+          return (
+            <motion.div
+              key={a.to}
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 * i }}
+            >
+              <Link
+                to={a.to}
+                className="group flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 shadow-soft hover:shadow-luxe hover:-translate-y-0.5 transition-all"
+              >
+                <span className="h-10 w-10 rounded-xl bg-gradient-to-br from-[#611C2B] to-[#8A525E] flex items-center justify-center shrink-0 group-hover:from-[#D3A345] group-hover:to-[#C4942F] transition-all">
+                  <Icon className="h-5 w-5 text-white" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-bold truncate">{a.label}</span>
+                  <span className="block text-xs text-muted-foreground truncate">{a.hint}</span>
+                </span>
+                <ArrowUpRight className="ml-auto h-4 w-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all shrink-0" />
+              </Link>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      <div className="grid lg:grid-cols-5 gap-6">
+        {/* NEXT STEPS */}
+        <motion.section
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="lg:col-span-3 rounded-3xl bg-card border border-border/60 shadow-soft p-6 sm:p-7"
+        >
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-xl font-bold">Your next steps</h2>
+            <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-muted text-muted-foreground">
+              {steps.filter((s) => s.done).length}/{steps.length} done
+            </span>
+          </div>
+
+          <div className="mt-5">
+            <div className="flex items-center justify-between text-xs font-semibold mb-2">
+              <span className="text-muted-foreground">Profile completion</span>
+              <span className="text-[color:var(--gold-royal)]">{pct}%</span>
+            </div>
+            <div className="h-2.5 rounded-full bg-muted overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-[#611C2B] to-[#D3A345]"
+                initial={{ width: 0 }}
+                animate={{ width: `${pct}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              />
+            </div>
+            {!isComplete && missing.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {missing.slice(0, 6).map((f) => (
+                  <span key={f} className="px-2.5 py-1 rounded-full bg-destructive/10 text-destructive text-[11px] font-semibold border border-destructive/20">
+                    {f.replace(/_/g, " ")}
+                  </span>
+                ))}
+                {missing.length > 6 && (
+                  <span className="px-2.5 py-1 rounded-full bg-muted text-muted-foreground text-[11px] font-semibold">
+                    +{missing.length - 6} more
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <ol className="mt-6 space-y-1">
+            {steps.map((s, i) => (
+              <li key={s.title}>
+                <div className="flex items-center gap-4 p-3 rounded-2xl hover:bg-muted/60 transition">
+                  <span className={`relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full font-bold text-sm ${s.done ? "bg-emerald text-white" : "bg-muted text-muted-foreground"}`}>
+                    {s.done ? <Check className="h-4 w-4" /> : i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate">{s.title}</p>
+                    <p className="text-xs text-muted-foreground truncate">{s.desc}</p>
+                  </div>
+                  {s.to && (
+                    <Link
+                      to={s.to}
+                      className="shrink-0 px-4 py-1.5 rounded-full text-xs font-bold border border-border hover:bg-foreground hover:text-background transition"
+                    >
+                      {s.cta}
+                    </Link>
+                  )}
+                </div>
+                {i < steps.length - 1 && <div className="ml-[29px] h-3 w-px bg-border" />}
+              </li>
+            ))}
+          </ol>
+        </motion.section>
+
+        <div className="lg:col-span-2 space-y-6">
+          {/* MEMBERSHIP SPOTLIGHT */}
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.7 }}
-            className="p-6 rounded-3xl bg-gradient-to-br from-emerald to-burgundy shadow-luxe text-[color:var(--cream-soft)] h-full relative"
+            transition={{ delay: 0.22 }}
+            className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#2D2323] to-[#611C2B] text-white shadow-luxe p-6 sm:p-7"
           >
-            <div className="absolute inset-0 pattern-dots opacity-10 rounded-3xl pointer-events-none" />
+            <div className="absolute inset-0 pattern-dots opacity-10 pointer-events-none" />
+            <div className="absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#D3A345]/25 blur-3xl pointer-events-none" />
             <div className="relative">
-              <Crown className="h-8 w-8 text-gold-royal mb-4" />
-              <h3 className="font-display text-xl font-bold mb-2">Free Member</h3>
-              <p className="text-sm opacity-80 mb-4">Upgrade to unlock dedicated matchmaker, unlimited matches, and pre-marital counselling.</p>
-              <div className="space-y-2">
-                {["Personal Matchmaker", "Unlimited Introductions", "Priority Support"].map((f, i) => (
-                  <div key={f} className="flex items-center gap-2 text-sm">
-                    <Check className="h-4 w-4 text-gold-royal" />
-                    <span className={i > 0 ? "opacity-50" : ""}>{f}</span>
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest text-[#D3A345]">
+                  <Crown className="h-4 w-4" /> Membership
+                </span>
+                {subActive && (
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-400/30">
+                    Active
+                  </span>
+                )}
+              </div>
+              <h3 className="mt-3 font-display text-2xl font-bold">
+                {plan ? plan.name : "Free Member"}
+              </h3>
+              <p className="mt-1 text-sm text-white/75">
+                {plan && subActive
+                  ? "Enjoying every premium perk. Your forever deserves it."
+                  : "Unlock unlimited likes, chats, who-liked-you and counselling."}
+              </p>
+              <div className="mt-5 flex flex-wrap gap-2">
+                <Link
+                  to="/membership"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-[#D3A345] text-[#611C2B] text-sm font-bold hover:scale-[1.03] transition"
+                >
+                  {subActive ? "Manage plan" : "Upgrade"} <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  to="/dashboard/profile"
+                  className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full border border-white/25 text-sm font-bold text-white/90 hover:bg-white/10 transition"
+                >
+                  <User className="h-4 w-4" /> My profile
+                </Link>
+              </div>
+            </div>
+          </motion.section>
+
+          {/* PHOTOS */}
+          <motion.section
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.28 }}
+            className="rounded-3xl bg-card border border-border/60 shadow-soft p-6"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-display text-lg font-bold flex items-center gap-2">
+                <Camera className="h-4 w-4 text-[color:var(--gold-royal)]" /> Photos
+              </h3>
+              <Link to="/dashboard/profile" className="text-xs font-bold text-muted-foreground hover:text-foreground">
+                Manage
+              </Link>
+            </div>
+            {photos.length > 0 ? (
+              <div className="grid grid-cols-4 gap-2">
+                {photos.slice(0, 4).map((photo) => (
+                  <div key={photo.id} className="relative aspect-square rounded-xl overflow-hidden border border-border/40">
+                    <img src={photo.image} alt="" className="h-full w-full object-cover" />
+                    {photo.is_primary && (
+                      <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-full bg-[#D3A345] text-white text-[9px] font-bold">
+                        Primary
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
-              <Link to="/membership" className="mt-6 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-gold text-emerald-deep text-sm font-bold shadow-glow hover:scale-105 transition">
-                Upgrade Plan <ArrowRight className="h-3.5 w-3.5" />
+            ) : (
+              <Link to="/dashboard/profile" className="flex items-center gap-3 p-3 rounded-2xl border-2 border-dashed border-border hover:border-[#D3A345] transition">
+                <span className="h-10 w-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <Camera className="h-4 w-4 text-muted-foreground" />
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  <span className="block font-bold text-foreground text-sm">Add your first photo</span>
+                  A clear photo builds trust and unlocks matching.
+                </span>
               </Link>
+            )}
+            <div className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
+              <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
+              {verified ? "Email verified — you're a trusted member." : "Verify your email to earn trust."}
             </div>
-          </motion.div>
+            <p className="mt-3 text-xs text-muted-foreground flex items-center gap-1.5">
+              <Heart className="h-3.5 w-3.5 text-[color:var(--gold-royal)]" />
+              Member since {user?.date_joined ? new Date(user.date_joined).toLocaleDateString(undefined, { year: "numeric", month: "long" }) : "recently"}
+            </p>
+          </motion.section>
         </div>
       </div>
-
-      {/* Photo gallery */}
-      {photos.length > 0 && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="mb-10"
-        >
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="font-display text-xl font-bold text-foreground">My Photos</h2>
-            <Link to="/dashboard/profile" className="text-sm font-semibold text-emerald-deep dark:text-gold-royal">Manage</Link>
-          </div>
-          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
-            {photos.map((photo) => (
-              <div key={photo.id} className="relative shrink-0 h-32 w-32 rounded-2xl overflow-hidden border border-border/40 shadow-soft">
-                <img src={photo.image} alt="" className="h-full w-full object-cover" />
-                {photo.is_primary && (
-                  <div className="absolute top-1.5 right-1.5 h-5 w-5 rounded-full bg-gold-royal flex items-center justify-center">
-                    <Star className="h-3 w-3 text-white" fill="currentColor" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {cropModal && (
-        <CoverCropModal
-          src={cropModal.url}
-          ratio={cropModal.ratio}
-          onSave={handleCropSave}
-          onClose={() => {
-            URL.revokeObjectURL(cropModal.url);
-            setCropModal(null);
-          }}
-        />
-      )}
     </div>
   );
 }
