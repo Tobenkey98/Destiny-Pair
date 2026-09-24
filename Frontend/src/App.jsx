@@ -10,6 +10,7 @@ import { Footer } from "./components/Footer";
 import ChatWidget from "./components/ChatWidget";
 import SeoMeta from "./components/SeoMeta";
 import DashboardLayout from "./pages/dashboard/DashboardLayout";
+import RequireOnboarding from "./components/RequireOnboarding";
 import AdminLayout from "./pages/admin/AdminLayout";
 
 // Public pages
@@ -29,6 +30,7 @@ const RefundPolicy = lazyWithRetry(() => import("./pages/legal/RefundPolicy"));
 const CommunityGuidelines = lazyWithRetry(() => import("./pages/legal/CommunityGuidelines"));
 const Publications = lazyWithRetry(() => import("./pages/Publications"));
 const Register = lazyWithRetry(() => import("./pages/Register"));
+const Onboarding = lazyWithRetry(() => import("./pages/Onboarding"));
 const SocialComplete = lazyWithRetry(() => import("./pages/SocialComplete"));
 const VerifyEmail = lazyWithRetry(() => import("./pages/VerifyEmail"));
 const ForgotPassword = lazyWithRetry(() => import("./pages/ForgotPassword"));
@@ -141,6 +143,7 @@ function MainLayout() {
             <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
             <Route path="/publications" element={<Publications />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/setup" element={<Onboarding />} />
             <Route path="/social-complete" element={<SocialComplete />} />
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -161,7 +164,7 @@ function App() {
             <SeoMeta />
             <Suspense fallback={<PageLoader />}>
               <Routes>
-                <Route path="/dashboard" element={<DashboardLayout />}>
+                <Route path="/dashboard" element={<RequireOnboarding><DashboardLayout /></RequireOnboarding>}>
                   <Route index element={<Overview />} />
                   <Route path="profile" element={<ProfileCenter />} />
                   <Route path="profile/:publicId" element={<ProfileView />} />

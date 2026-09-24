@@ -102,9 +102,10 @@ const STEPS = [
   {id:8, title:"Compatibility", desc:"Health and physical info for matching"},
 ];
 
-export default function ProfileCenter(){
+export default function ProfileCenter({ setupMode = false, onComplete } = {}){
   const { user, loading: authLoading, updateProfile } = useAuth();
   const [step, setStep] = useState(1);
+  const [maxStep, setMaxStep] = useState(1);
   const [photos, setPhotos] = useState([]);
   const [denominations, setDenominations] = useState([]);
   const [vibes, setVibes] = useState([]);
@@ -178,6 +179,13 @@ export default function ProfileCenter(){
   const pct = completion?.percentage ?? 0;
   const isComplete = completion?.is_complete || false;
   const missing = completion?.missing_fields || [];
+
+  useEffect(() => {
+    if (setupMode && isComplete && onComplete) {
+      const t = setTimeout(onComplete, 1500);
+      return () => clearTimeout(t);
+    }
+  }, [setupMode, isComplete, onComplete]);
 
   async function saveStep(fields){
     setSaving(true); setSaveMsg("");
@@ -263,7 +271,11 @@ export default function ProfileCenter(){
       {/* Header progress */}
       <div className="sticky top-0 z-30 -mx-4 px-4 pt-4 pb-3 bg-background/80 backdrop-blur-xl border-b border-border/40 supports-[backdrop-filter]:bg-background/80">
         <div className="flex items-center justify-between mb-3">
-          <Link to="/dashboard" className="text-sm font-semibold text-muted-foreground flex items-center gap-1"><ChevronLeft className="h-4 w-4"/>Overview</Link>
+          {setupMode ? (
+            <span className="text-sm font-semibold text-muted-foreground">Profile Setup</span>
+          ) : (
+            <Link to="/dashboard" className="text-sm font-semibold text-muted-foreground flex items-center gap-1"><ChevronLeft className="h-4 w-4"/>Overview</Link>
+          )}
           <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-card border shadow-sm text-card-foreground">{step}/{STEPS.length}</span>
         </div>
         <ProgressBar pct={pct}/>
@@ -271,6 +283,19 @@ export default function ProfileCenter(){
           {isComplete ? "✓ Profile Complete — Your profile is ready. You can now discover meaningful connections." : "Complete the remaining information to start discovering Christian singles."}
         </p>
       </div>
+
+      {setupMode && user && !user.is_verified && (
+        <div className="mt-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-sm flex gap-3 items-start">
+          <Mail className="h-5 w-5 shrink-0 mt-0.5 text-amber-600" />
+          <div>
+            <p className="font-semibold">Verify your email to continue setup.</p>
+            <p className="text-muted-foreground mt-0.5">Check your inbox for the 6-digit code, then come back here.</p>
+            <Link to={`/verify-email?email=${encodeURIComponent(user.email || "")}`} className="mt-2 inline-block font-bold text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)] underline underline-offset-2">
+              Go to verification
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Cover + avatar quick */}
       <div className="mt-6 rounded-3xl overflow-hidden bg-card border border-border/60 shadow-soft">
@@ -307,11 +332,14 @@ export default function ProfileCenter(){
           <ChevronRight className="h-4 w-4"/>
         </button>
         <div ref={stepsRef} className="flex gap-2 overflow-x-auto scrollbar-none pb-2 scroll-smooth snap-x snap-mandatory px-0 sm:px-8">
-          {STEPS.map(s=> (
-            <button key={s.id} onClick={()=> setStep(s.id)} className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${step===s.id?"bg-[#2D2323] text-white border-[#2D2323] dark:bg-[#D3A345] dark:text-[#2D2323] dark:border-[#D3A345]":"bg-card text-muted-foreground border-border hover:bg-accent"}`}>
-              {s.id}. {s.title}
-            </button>
-          ))}
+          {STEPS.map(s=> {
+            const locked = setupMode && s.id > maxStep;
+            return (
+              <button key={s.id} disabled={locked} onClick={()=> { if (!locked) setStep(s.id); }} className={`shrink-0 snap-start px-3 py-1.5 rounded-full text-xs font-semibold border whitespace-nowrap ${step===s.id?"bg-[#2D2323] text-white border-[#2D2323] dark:bg-[#D3A345] dark:text-[#2D2323] dark:border-[#D3A345]":"bg-card text-muted-foreground border-border hover:bg-accent"} ${locked?"opacity-40 cursor-not-allowed":""}`}>
+                {s.id}. {s.title}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -558,20 +586,21 @@ export default function ProfileCenter(){
               const map={1:["first_name","last_name","phone","date_of_birth","gender","state_of_residence","marital_status","nationality"], 2:["denomination"], 3:["vibes"], 4:["hobbies_m2m","custom_hobby"], 5:["languages_m2m"], 6:["about_self","seeking_description"], 7:["marital_status","preferred_age_min","preferred_age_max","preferred_height_min","preferred_height_max","preferred_weight_min","preferred_weight_max","preferred_locations"], 8:["genotype","blood_group","height_cm","weight_kg"]};
               const fields=map[step]||[];
               // simple validation
+              if(setupMode && step===1 && !photos.find(p=>p.is_primary)){ alert("Please upload a profile photo and set it as your primary photo to continue."); return; }
               if(step===3 && (form.vibes?.length||0)>5){ alert("Maximum 5 vibes allowed."); return; }
               if(step===4 && (form.hobbies_m2m?.length||0)>7){ alert("Maximum 7 hobbies allowed."); return; }
               if(step===7 && Number(form.preferred_age_min)>Number(form.preferred_age_max)){ alert("Maximum age cannot be lower than minimum age."); return; }
               if(step===7 && Number(form.preferred_height_min)>Number(form.preferred_height_max)){ alert("Please select a valid height range."); return; }
               if(step===7 && Number(form.preferred_weight_min)>Number(form.preferred_weight_max)){ alert("Please select a valid weight range."); return; }
               const ok=await saveStep(fields);
-              if(ok) setStep(s=> s+1);
+              if(ok) { setMaxStep(m=> Math.max(m, step+1)); setStep(s=> s+1); }
             }} disabled={saving} className="px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold shadow hover:shadow-glow transition disabled:opacity-50 flex items-center gap-2">
               {saving?"Saving...":<><Save className="h-4 w-4"/>Save & Continue <ChevronRight className="h-4 w-4"/></>}
             </button>
           ) : (
             <button onClick={async()=>{
               const ok=await saveStep(["genotype","blood_group","height_cm","weight_kg"]);
-              if(ok){ await refreshCompletion(); setStep(9); }
+              if(ok){ await refreshCompletion(); setMaxStep(9); setStep(9); }
             }} disabled={saving} className="px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold">{saving?"Saving...":"Finish"}</button>
           )}
         </div>
@@ -596,7 +625,11 @@ export default function ProfileCenter(){
             {isComplete ? (
               <>
                 <p className="font-bold text-emerald-700">✓ Your profile is complete.</p>
-                <Link to="/dashboard/discover" className="mt-3 inline-flex px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold">Go to Discover</Link>
+                {setupMode ? (
+                  <button onClick={() => onComplete && onComplete()} className="mt-3 inline-flex px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold">Go to Dashboard</button>
+                ) : (
+                  <Link to="/dashboard/discover" className="mt-3 inline-flex px-6 py-2.5 rounded-full bg-[#611C2B] text-white text-sm font-bold">Go to Discover</Link>
+                )}
               </>
             ) : (
               <>

@@ -35,9 +35,11 @@ function Login() {
         sessionStorage.removeItem("checkout_intent");
         navigate(checkoutIntent);
       } else if (pending) {
-        navigate("/social-complete");
+        navigate("/setup");
+      } else if (data.user?.profile_completion && !data.user.profile_completion.is_complete) {
+        navigate("/setup");
       } else {
-        navigate(data.user?.public_id ? `/dashboard/profile/${data.user.public_id}` : "/dashboard");
+        navigate("/dashboard");
       }
     } catch (err) {
       if (err.data?.needs_verification) {
@@ -66,8 +68,12 @@ function Login() {
       if (checkoutIntent) {
         sessionStorage.removeItem("checkout_intent");
         navigate(checkoutIntent);
+      } else if (result.created) {
+        navigate("/setup");
+      } else if (result.user?.profile_completion && !result.user.profile_completion.is_complete) {
+        navigate("/setup");
       } else {
-        navigate(result.created ? "/social-complete" : (result.user?.public_id ? `/dashboard/profile/${result.user.public_id}` : "/dashboard"));
+        navigate("/dashboard");
       }
     } catch (err) {
       setError(err.data?.error || err.message || `${provider} sign in failed.`);

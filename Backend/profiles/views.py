@@ -60,6 +60,9 @@ class PhotoUploadView(APIView):
             photo.ai_confidence = ai_result['confidence']
             photo.save(update_fields=['is_ai_generated', 'ai_confidence'])
 
+        from profiles.profile_completion import sync_profile_completed_flag
+        sync_profile_completed_flag(request.user)
+
         return Response(
             PhotoSerializer(photo, context={'request': request}).data,
             status=status.HTTP_201_CREATED,
@@ -80,6 +83,11 @@ class PhotoDeleteView(generics.DestroyAPIView):
     def get_queryset(self):
         return Photo.objects.filter(user=self.request.user)
 
+    def perform_destroy(self, instance):
+        super().perform_destroy(instance)
+        from profiles.profile_completion import sync_profile_completed_flag
+        sync_profile_completed_flag(self.request.user)
+
 
 class PrimaryPhotoView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -93,6 +101,8 @@ class PrimaryPhotoView(APIView):
         Photo.objects.filter(user=request.user, is_primary=True).update(is_primary=False)
         photo.is_primary = True
         photo.save(update_fields=['is_primary'])
+        from profiles.profile_completion import sync_profile_completed_flag
+        sync_profile_completed_flag(request.user)
         return Response(PhotoSerializer(photo, context={'request': request}).data)
 
 

@@ -215,3 +215,22 @@ def is_profile_complete(user):
 def get_missing_field_labels(user):
     result = calculate_profile_completion(user)
     return [FIELD_LABELS.get(f, f) for f in result["missing_fields"]]
+
+
+def sync_profile_completed_flag(user):
+    """Sync the cached ``is_profile_completed`` flag from the dynamic result.
+
+    The dynamic calculation remains the source of truth; this only keeps the
+    DB flag fresh for quick checks, admin views and analytics. Returns the
+    calculation result dict.
+    """
+    result = calculate_profile_completion(user)
+    try:
+        if user.is_profile_completed != result["is_complete"]:
+            type(user).objects.filter(pk=user.pk).update(
+                is_profile_completed=result["is_complete"]
+            )
+            user.is_profile_completed = result["is_complete"]
+    except Exception:
+        pass
+    return result

@@ -42,56 +42,63 @@ function Membership() {
         subtitle="Every plan is built with the same conviction &mdash; your forever deserves intention. Choose the level of access that fits your season."
       />
 
-      <section className="py-20">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6 lg:gap-8">
+      <section className="py-14">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-5 items-stretch">
             {plans.map((p, i) => {
               const meta = planMeta(p.slug);
               const Icon = meta.icon;
               const feats = planFeatures(p);
+              const shown = feats.slice(0, 6);
+              const extra = feats.length - shown.length;
               const ctaTo = p.slug === "free" ? "/register" : `/checkout/${p.slug}`;
               const ctaLabel = p.slug === "free" ? "Register Free" : `Choose ${p.name}`;
               return (
                 <Reveal key={p.slug} delay={i * 0.1}>
                   <motion.div
-                    whileHover={{ y: -10 }}
-                    className={`relative p-8 rounded-3xl transition-all h-full flex flex-col ${
+                    whileHover={{ y: -6 }}
+                    className={`relative p-6 rounded-3xl transition-all h-full flex flex-col ${
                       meta.featured
-                        ? "bg-luxury text-[color:var(--cream-soft)] shadow-luxe xl:scale-105 ring-1 ring-[color:var(--gold-royal)]/40"
+                        ? "bg-luxury text-[color:var(--cream-soft)] shadow-luxe ring-1 ring-[color:var(--gold-royal)]/40"
                         : "bg-background border border-border shadow-soft hover:shadow-luxe"
                     }`}
                   >
                     {meta.featured && (
-                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-xs font-bold tracking-wider shadow-glow flex items-center gap-1">
-                        <Sparkles className="h-3.5 w-3.5" /> MOST POPULAR
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-gold text-[color:var(--emerald-deep)] text-[11px] font-bold tracking-wider shadow-glow flex items-center gap-1 whitespace-nowrap">
+                        <Sparkles className="h-3 w-3" /> MOST POPULAR
                       </div>
                     )}
-                    <div className={`h-14 w-14 rounded-2xl flex items-center justify-center mb-5 ${meta.featured ? "bg-gold" : "bg-emerald"}`}>
-                      <Icon className={`h-7 w-7 ${meta.featured ? "text-[color:var(--emerald-deep)]" : "text-[color:var(--gold-royal)]"}`} />
+                    <div className={`h-11 w-11 rounded-xl flex items-center justify-center mb-4 ${meta.featured ? "bg-gold" : "bg-emerald"}`}>
+                      <Icon className={`h-5 w-5 ${meta.featured ? "text-[color:var(--emerald-deep)]" : "text-[color:var(--gold-royal)]"}`} />
                     </div>
-                    <h3 className={`font-display text-3xl font-bold ${meta.featured ? "text-gradient-gold" : ""}`}>{p.name}</h3>
-                    <p className={`text-sm mt-1 ${meta.featured ? "text-[color:var(--cream-soft)]/80" : "text-muted-foreground"}`}>
+                    <h3 className={`font-display text-2xl font-bold ${meta.featured ? "text-gradient-gold" : ""}`}>{p.name}</h3>
+                    <p className={`text-[13px] mt-1 line-clamp-2 min-h-[2.5rem] ${meta.featured ? "text-[color:var(--cream-soft)]/80" : "text-muted-foreground"}`}>
                       {p.description || p.desc}
                     </p>
-                    <div className="mt-7">
-                      <div className={`font-display text-5xl font-bold ${meta.featured ? "text-gradient-gold" : "text-gradient-luxury"}`}>
+                    <div className="mt-4 flex items-baseline gap-1.5">
+                      <span className={`font-display text-4xl font-bold ${meta.featured ? "text-gradient-gold" : "text-gradient-luxury"}`}>
                         {p.price_display || `\u20A6${Number(p.price).toLocaleString()}`}
-                      </div>
-                      <div className={`text-sm mt-1 ${meta.featured ? "text-[color:var(--cream-soft)]/70" : "text-muted-foreground"}`}>
+                      </span>
+                      <span className={`text-xs ${meta.featured ? "text-[color:var(--cream-soft)]/70" : "text-muted-foreground"}`}>
                         {meta.per}
-                      </div>
+                      </span>
                     </div>
-                    <ul className="mt-7 space-y-3.5 flex-1">
-                      {feats.map((f) => (
-                        <li key={f} className="flex gap-3 items-start">
-                          <Check className={`h-5 w-5 shrink-0 mt-0.5 ${meta.featured ? "text-[color:var(--gold-royal)]" : "text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)]"}`} />
-                          <span className="text-sm">{f}</span>
+                    <ul className="mt-5 space-y-2.5 flex-1">
+                      {shown.map((f) => (
+                        <li key={f} className="flex gap-2 items-start">
+                          <Check className={`h-4 w-4 shrink-0 mt-0.5 ${meta.featured ? "text-[color:var(--gold-royal)]" : "text-[color:var(--emerald-deep)] dark:text-[color:var(--gold-royal)]"}`} />
+                          <span className="text-[13px] leading-snug">{f}</span>
                         </li>
                       ))}
+                      {extra > 0 && (
+                        <li className={`text-xs font-semibold pl-6 ${meta.featured ? "text-[color:var(--gold-royal)]" : "text-muted-foreground"}`}>
+                          +{extra} more features
+                        </li>
+                      )}
                     </ul>
                     <Link
                       to={ctaTo}
-                      className={`mt-10 block text-center py-4 rounded-full font-bold transition ${
+                      className={`mt-6 block text-center py-3 rounded-full text-sm font-bold transition ${
                         meta.featured
                           ? "bg-gold text-[color:var(--emerald-deep)] hover:shadow-glow"
                           : "bg-emerald text-[color:var(--gold-royal)] hover:shadow-glow"

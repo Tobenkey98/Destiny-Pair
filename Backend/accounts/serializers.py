@@ -202,6 +202,8 @@ class UserSerializer(serializers.ModelSerializer):
         if custom:
             from profiles.services import DenominationService
             DenominationService.create_pending(name=custom, user=instance)
+        from profiles.profile_completion import sync_profile_completed_flag
+        sync_profile_completed_flag(instance)
         return instance
 
     def get_primary_photo(self, obj):
