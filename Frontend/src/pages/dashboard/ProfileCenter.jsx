@@ -36,6 +36,11 @@ function getHobbyCategory(name){
   return "Lifestyle";
 }
 
+const FALLBACK_VIBES = ["Faith-Focused","Caring","Cheerful","Communicative","Ambitious","Supportive","Family-Oriented","Adventurous","Creative","Loves Learning","Easygoing","Thoughtful","Patient","Outgoing","Confident"].map((name,i)=> ({id: 9000+i, name, slug: name.toLowerCase().replace(/\s+/g,'-'), is_active:true}));
+const FALLBACK_HOBBIES = ["Reading","Cooking","Baking","Football","Basketball","Gaming","Music","Movies & Series","Photography","Travelling","Fitness & Gym","Dancing","Singing","Writing","Drawing & Painting","Cycling","Swimming","Hiking","Volunteering","Bible Study","Church Activities","Technology","Entrepreneurship","Learning New Skills","Podcasts","Gardening","Fashion","Road Trips","Exploring New Places","Board Games","Other"].map((name,i)=> ({id: 9100+i, name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g,'-'), is_active:true}));
+const FALLBACK_LANGUAGES = ["English","Pidgin English","Yoruba","Igbo","Hausa","Efik","Ibibio","Edo","Urhobo","Itsekiri","Ijaw","Tiv","Nupe","Idoma","Igala","Kanuri","Fulfulde","Ebira","French","Arabic","Spanish","German","Other"].map((name,i)=> ({id: 9200+i, name, slug: name.toLowerCase().replace(/\s+/g,'-'), is_active:true}));
+const FALLBACK_LOCATIONS = ["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT (Abuja)","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara","Anywhere in Nigeria","Outside Nigeria"].map((name,i)=> ({id: 9300+i, name, slug: name.toLowerCase().replace(/[^a-z0-9]+/g,'-'), category: name.includes("Anywhere")?"anywhere_nigeria":name.includes("Outside")?"outside_nigeria":"state", is_active:true}));
+
 function ProgressBar({ pct }){
   return (
     <div className="w-full">
@@ -123,10 +128,10 @@ export default function ProfileCenter(){
   useEffect(()=>{
     api.getPhotos().then(d=> setPhotos(Array.isArray(d)?d:[])).catch(()=>{});
     api.getDenominations().then(d=> setDenominations(Array.isArray(d)?d:[])).catch(()=>{});
-    api.getVibes().then(d=> setVibes(Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[])).catch(()=>{});
-    api.getHobbies().then(d=> setHobbies(Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[])).catch(()=>{});
-    api.getLanguages().then(d=> setLanguages(Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[])).catch(()=>{});
-    api.getLocations().then(d=> setLocations(Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[])).catch(()=>{});
+    api.getVibes().then(d=>{ const arr=Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[]; setVibes(arr.length?arr:FALLBACK_VIBES); }).catch(()=> setVibes(FALLBACK_VIBES));
+    api.getHobbies().then(d=>{ const arr=Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[]; setHobbies(arr.length?arr:FALLBACK_HOBBIES); }).catch(()=> setHobbies(FALLBACK_HOBBIES));
+    api.getLanguages().then(d=>{ const arr=Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[]; setLanguages(arr.length?arr:FALLBACK_LANGUAGES); }).catch(()=> setLanguages(FALLBACK_LANGUAGES));
+    api.getLocations().then(d=>{ const arr=Array.isArray(d)?d: Array.isArray(d?.results)?d.results:[]; setLocations(arr.length?arr:FALLBACK_LOCATIONS); }).catch(()=> setLocations(FALLBACK_LOCATIONS));
   },[]);
 
   const refreshCompletion = async()=>{
@@ -293,9 +298,17 @@ export default function ProfileCenter(){
         ))}
       </div>
 
-      {/* Step content */}
-      <AnimatePresence mode="wait">
-        <motion.div key={step} initial={{opacity:0, x:12}} animate={{opacity:1,x:0}} exit={{opacity:0, x:-12}} transition={{duration:0.2}} className="mt-6 rounded-3xl bg-card border border-border/60 shadow-soft p-5 sm:p-6">
+      {/* Step content - swipeable carousel */}
+      <div className="relative mt-6">
+        {/* Carousel arrows */}
+        <button onClick={()=> setStep(s=> Math.max(1, s-1))} disabled={step===1} className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 sm:-translate-x-4 z-10 h-9 w-9 rounded-full bg-card border border-border shadow-soft flex items-center justify-center hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed">
+          <ChevronLeft className="h-4 w-4"/>
+        </button>
+        <button onClick={()=> setStep(s=> Math.min(STEPS.length, s+1))} disabled={step===STEPS.length} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 sm:translate-x-4 z-10 h-9 w-9 rounded-full bg-card border border-border shadow-soft flex items-center justify-center hover:bg-accent disabled:opacity-30 disabled:cursor-not-allowed">
+          <ChevronRight className="h-4 w-4"/>
+        </button>
+        <AnimatePresence mode="wait">
+          <motion.div key={step} initial={{opacity:0, x:16}} animate={{opacity:1,x:0}} exit={{opacity:0, x:-16}} transition={{duration:0.25}} drag="x" dragConstraints={{left:0,right:0}} dragElastic={0.2} onDragEnd={(e,{offset})=>{ if(offset.x<-80 && step<STEPS.length) setStep(s=> s+1); if(offset.x>80 && step>1) setStep(s=> s-1); }} className="rounded-3xl bg-card border border-border/60 shadow-soft p-5 sm:p-6 touch-pan-y">
           
           {step===1 && (
             <div className="space-y-5">
@@ -524,7 +537,14 @@ export default function ProfileCenter(){
           )}
 
         </motion.div>
-      </AnimatePresence>
+        </AnimatePresence>
+        {/* Carousel dots */}
+        <div className="flex items-center justify-center gap-1.5 mt-4">
+          {STEPS.map(s=> (
+            <button key={s.id} onClick={()=> setStep(s.id)} className={`h-1.5 rounded-full transition-all ${step===s.id?"w-6 bg-[#611C2B] dark:bg-[#D3A345]":"w-1.5 bg-foreground/20 hover:bg-foreground/30"}`} aria-label={`Go to ${s.title}`}/>
+          ))}
+        </div>
+      </div>
 
       {/* Save bar */}
       <div className="sticky bottom-0 mt-6 -mx-4 px-4 py-3 bg-background/90 backdrop-blur-xl border-t border-border/50 flex items-center justify-between gap-3 supports-[backdrop-filter]:bg-background/80">

@@ -10,10 +10,10 @@ User = get_user_model()
 
 class ProfileCompletionTests(TestCase):
     def setUp(self):
-        self.vibe = Vibe.objects.create(name="Faith-Focused", slug="faith-focused")
-        self.hobby = Hobby.objects.create(name="Reading", slug="reading")
-        self.lang = Language.objects.create(name="English", slug="english")
-        self.loc = LocationOption.objects.create(name="Lagos", slug="lagos", category="state")
+        self.vibe, _ = Vibe.objects.get_or_create(name="Faith-Focused", defaults={"slug": "faith-focused"})
+        self.hobby, _ = Hobby.objects.get_or_create(name="Reading", defaults={"slug": "reading"})
+        self.lang, _ = Language.objects.get_or_create(name="English", defaults={"slug": "english"})
+        self.loc, _ = LocationOption.objects.get_or_create(name="Lagos", defaults={"slug": "lagos", "category": "state"})
         self.user = User.objects.create_user(email="test@example.com", password="pass12345", first_name="Test", username="test@example.com")
         # Minimal required fields for a complete profile - set all
         self.user.date_of_birth = date(1995, 5, 15)
@@ -103,7 +103,7 @@ class ProfileCompletionTests(TestCase):
     def test_max_vibes_validation(self):
         # Try to add 6 vibes via API serializer should fail, but service counts as incomplete if >5? Actually service checks 1-5, >5 counts as invalid? currently _check counts 1-7 as valid, >5 returns False? we check 1 <= count <=5 for vibes, so 6 should be incomplete
         for i in range(6):
-            v = Vibe.objects.create(name=f"Vibe{i}", slug=f"vibe{i}")
+            v, _ = Vibe.objects.get_or_create(name=f"Vibe{i}", defaults={"slug": f"vibe{i}"})
             self.user.vibes.add(v)
         result = calculate_profile_completion(self.user)
         # should be incomplete due to count >5
@@ -113,20 +113,20 @@ class ProfileCompletionTests(TestCase):
 
     def test_max_hobbies_validation(self):
         for i in range(8):
-            h = Hobby.objects.create(name=f"Hobby{i}", slug=f"hobby{i}")
+            h, _ = Hobby.objects.get_or_create(name=f"Hobby{i}", defaults={"slug": f"hobby{i}"})
             self.user.hobbies_m2m.add(h)
         result = calculate_profile_completion(self.user)
         self.assertIn("hobbies", result["missing_fields"])
 
     def test_multiple_languages(self):
-        lang2 = Language.objects.create(name="Yoruba", slug="yoruba")
+        lang2, _ = Language.objects.get_or_create(name="Yoruba", defaults={"slug": "yoruba"})
         self.user.languages_m2m.add(lang2)
         result = calculate_profile_completion(self.user)
         self.assertNotIn("languages", result["missing_fields"])
 
     def test_multiple_preferred_locations(self):
-        loc2 = LocationOption.objects.create(name="Abuja", slug="abuja", category="state")
-        loc3 = LocationOption.objects.create(name="Anywhere in Nigeria", slug="anywhere-nigeria", category="anywhere_nigeria")
+        loc2, _ = LocationOption.objects.get_or_create(name="Abuja", defaults={"slug": "abuja", "category": "state"})
+        loc3, _ = LocationOption.objects.get_or_create(name="Anywhere in Nigeria", defaults={"slug": "anywhere-nigeria", "category": "anywhere_nigeria"})
         self.user.preferred_locations.add(loc2, loc3)
         result = calculate_profile_completion(self.user)
         self.assertNotIn("preferred_locations", result["missing_fields"])

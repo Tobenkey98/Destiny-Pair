@@ -8,6 +8,53 @@ User = get_user_model()
 
 from .models import Activity
 
+# Fallback vocabularies for when live DB hasn't been seeded yet (e.g., fresh deploy)
+# These mirror Frontend/src/pages/dashboard/ProfileCenter.jsx FALLBACK_* constants
+FALLBACK_VIBES = ["Faith-Focused","Caring","Cheerful","Communicative","Ambitious","Supportive","Family-Oriented","Adventurous","Creative","Loves Learning","Easygoing","Thoughtful","Patient","Outgoing","Confident"]
+FALLBACK_HOBBIES = ["Reading","Cooking","Baking","Football","Basketball","Gaming","Music","Movies & Series","Photography","Travelling","Fitness & Gym","Dancing","Singing","Writing","Drawing & Painting","Cycling","Swimming","Hiking","Volunteering","Bible Study","Church Activities","Technology","Entrepreneurship","Learning New Skills","Podcasts","Gardening","Fashion","Road Trips","Exploring New Places","Board Games","Other"]
+FALLBACK_LANGUAGES = ["English","Pidgin English","Yoruba","Igbo","Hausa","Efik","Ibibio","Edo","Urhobo","Itsekiri","Ijaw","Tiv","Nupe","Idoma","Igala","Kanuri","Fulfulde","Ebira","French","Arabic","Spanish","German","Other"]
+FALLBACK_LOCATIONS = ["Abia","Adamawa","Akwa Ibom","Anambra","Bauchi","Bayelsa","Benue","Borno","Cross River","Delta","Ebonyi","Edo","Ekiti","Enugu","FCT (Abuja)","Gombe","Imo","Jigawa","Kaduna","Kano","Katsina","Kebbi","Kogi","Kwara","Lagos","Nasarawa","Niger","Ogun","Ondo","Osun","Oyo","Plateau","Rivers","Sokoto","Taraba","Yobe","Zamfara","Anywhere in Nigeria","Outside Nigeria"]
+
+# Map fallback synthetic IDs (9000+) to names for auto-creation
+FALLBACK_MAP = {}
+for i, name in enumerate(FALLBACK_VIBES):
+    FALLBACK_MAP[9000+i] = ("vibe", name)
+for i, name in enumerate(FALLBACK_HOBBIES):
+    FALLBACK_MAP[9100+i] = ("hobby", name)
+for i, name in enumerate(FALLBACK_LANGUAGES):
+    FALLBACK_MAP[9200+i] = ("language", name)
+for i, name in enumerate(FALLBACK_LOCATIONS):
+    FALLBACK_MAP[9300+i] = ("location", name)
+
+class FlexibleM2MField(serializers.PrimaryKeyRelatedField):
+    """PrimaryKeyRelatedField that auto-creates fallback vocabularies when ID >=9000 is sent before DB is seeded."""
+    def to_internal_value(self, data):
+        try:
+            return super().to_internal_value(data)
+        except serializers.ValidationError:
+            # Try fallback synthetic ID
+            try:
+                fid = int(data)
+            except Exception:
+                raise
+            if fid in FALLBACK_MAP:
+                kind, name = FALLBACK_MAP[fid]
+                from django.utils.text import slugify
+                if kind == "vibe":
+                    obj, _ = Vibe.objects.get_or_create(name=name, defaults={"slug": slugify(name), "is_active": True})
+                    return obj
+                elif kind == "hobby":
+                    obj, _ = Hobby.objects.get_or_create(name=name, defaults={"slug": slugify(name), "is_active": True})
+                    return obj
+                elif kind == "language":
+                    obj, _ = Language.objects.get_or_create(name=name, defaults={"slug": slugify(name), "is_active": True})
+                    return obj
+                elif kind == "location":
+                    cat = "anywhere_nigeria" if "Anywhere" in name else "outside_nigeria" if "Outside" in name else "state"
+                    obj, _ = LocationOption.objects.get_or_create(name=name, defaults={"slug": slugify(name), "category": cat, "is_active": True})
+                    return obj
+            raise
+
 
 class SignupSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -43,19 +90,19 @@ class UserSerializer(serializers.ModelSerializer):
         source='denomination.name', read_only=True, default=None
     )
     custom_denomination = serializers.CharField(write_only=True, required=False, allow_blank=True)
-    vibes = serializers.PrimaryKeyRelatedField(
+    vibes = FlexibleM2MField(
         queryset=Vibe.objects.filter(is_active=True), many=True, required=False
     )
     vibes_detail = serializers.SerializerMethodField(read_only=True)
-    hobbies_m2m = serializers.PrimaryKeyRelatedField(
+    hobbies_m2m = FlexibleM2MField(
         queryset=Hobby.objects.filter(is_active=True), many=True, required=False
     )
     hobbies_m2m_detail = serializers.SerializerMethodField(read_only=True)
-    languages_m2m = serializers.PrimaryKeyRelatedField(
+    languages_m2m = FlexibleM2MField(
         queryset=Language.objects.filter(is_active=True), many=True, required=False
     )
     languages_m2m_detail = serializers.SerializerMethodField(read_only=True)
-    preferred_locations = serializers.PrimaryKeyRelatedField(
+    preferred_locations = FlexibleM2MField(
         queryset=LocationOption.objects.filter(is_active=True), many=True, required=False
     )
     preferred_locations_detail = serializers.SerializerMethodField(read_only=True)

@@ -115,6 +115,7 @@ jobs:
 
             python manage.py migrate
             python manage.py seed_plans
+            python manage.py seed_vocabularies || echo "seed_vocabularies failed (may already seeded)"
             sudo systemctl restart gunicorn
             sudo systemctl restart daphne || echo "WARNING: daphne service not installed yet (live chat needs it)"
             echo "Deploy OK: $(git rev-parse HEAD)"
