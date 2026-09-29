@@ -1,5 +1,4 @@
 import { Link, useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState, useRef } from "react";
 import { Menu, X, Moon, Sun, Heart, User, LogOut, ChevronDown } from "lucide-react";
 import { useTheme } from "./ThemeProvider";
@@ -33,7 +32,7 @@ export function Navbar() {
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     onScroll();
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -57,10 +56,7 @@ export function Navbar() {
 
   return (
     <>
-      <motion.header
-        initial={{ y: -20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+      <header
         className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${
           solid ? "glass shadow-soft" : "bg-transparent"
         }`}
@@ -148,11 +144,7 @@ export function Navbar() {
               onClick={toggle}
               className="p-2 rounded-full hover:bg-secondary transition-colors text-foreground/80"
             >
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.span key={theme} initial={{ rotate: -90, opacity: 0 }} animate={{ rotate: 0, opacity: 1 }} exit={{ rotate: 90, opacity: 0 }} transition={{ duration: 0.25 }} className="block">
-                  {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                </motion.span>
-              </AnimatePresence>
+              {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
 
             {user ? (
@@ -167,28 +159,20 @@ export function Navbar() {
                   <span className="hidden md:inline text-sm">{user?.first_name || user?.email || ""}</span>
                   <ChevronDown className={`h-4 w-4 transition ${dropdownOpen ? "rotate-180" : ""}`} />
                 </button>
-                <AnimatePresence>
-                  {dropdownOpen && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 mt-2 w-48 rounded-2xl bg-background border border-border shadow-luxe overflow-hidden"
-                    >
-                      <div className="px-4 py-3 border-b border-border">
-                        <p className="text-sm font-semibold">{(user?.first_name || "") + " " + (user?.last_name || "")}</p>
-                        <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                      </div>
-                      <Link to="/dashboard/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-secondary transition">
-                        <User className="h-4 w-4" /> Profile
-                      </Link>
-                      <button onClick={() => { logout(); setDropdownOpen(false); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-secondary transition w-full text-left text-destructive">
-                        <LogOut className="h-4 w-4" /> Logout
-                      </button>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                {dropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-48 rounded-2xl bg-background border border-border shadow-luxe overflow-hidden">
+                    <div className="px-4 py-3 border-b border-border">
+                      <p className="text-sm font-semibold">{(user?.first_name || "") + " " + (user?.last_name || "")}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                    <Link to="/dashboard/profile" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-secondary transition">
+                      <User className="h-4 w-4" /> Profile
+                    </Link>
+                    <button onClick={() => { logout(); setDropdownOpen(false); }} className="flex items-center gap-3 px-4 py-3 text-sm font-medium hover:bg-secondary transition w-full text-left text-destructive">
+                      <LogOut className="h-4 w-4" /> Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -204,79 +188,59 @@ export function Navbar() {
             </button>
           </div>
         </div>
-      </motion.header>
+      </header>
 
-      <AnimatePresence>
-        {open && (
-          <>
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm lg:hidden" />
-            <motion.aside
-              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 28, stiffness: 220 }}
-              className="fixed top-0 right-0 bottom-0 w-[85%] max-w-sm z-[70] bg-background border-l border-border shadow-luxe p-6 flex flex-col lg:hidden"
-            >
-              <div className="flex items-center justify-between mb-8">
-                <span className="font-display text-2xl font-bold text-gradient-luxury">DestinyPair</span>
-                <button onClick={() => setOpen(false)} className="p-2"><X className="h-6 w-6" /></button>
-              </div>
-              <nav className="flex flex-col gap-1">
-                {navLinks.slice(0, 1).map((l, i) => (
-                  <motion.div key={l.to} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.05 }}>
-                    <Link to={l.to} className="block py-3 px-4 rounded-xl text-lg font-medium hover:bg-secondary transition">{l.label}</Link>
-                  </motion.div>
-                ))}
-                {/* Mobile About expandable */}
-                <motion.div initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.05 }}>
-                  <button
-                    onClick={() => setMobileAboutOpen(!mobileAboutOpen)}
-                    className="flex items-center justify-between w-full py-3 px-4 rounded-xl text-lg font-medium hover:bg-secondary transition"
-                  >
-                    About
-                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${mobileAboutOpen ? "rotate-180" : ""}`} />
-                  </button>
-                  <AnimatePresence>
-                    {mobileAboutOpen && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="ml-4 border-l border-border/50 pl-4 space-y-1 pb-2">
-                          {aboutLinks.map(a => (
-                            <Link
-                              key={a.to}
-                              to={a.to}
-                              onClick={() => setOpen(false)}
-                              className="block py-2.5 px-4 rounded-xl text-base font-medium text-foreground/70 hover:text-foreground hover:bg-secondary transition"
-                            >
-                              {a.label}
-                            </Link>
-                          ))}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-                {navLinks.slice(1).map((l, i) => (
-                  <motion.div key={l.to} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: (i + 1) * 0.05 }}>
-                    <Link to={l.to} className="block py-3 px-4 rounded-xl text-lg font-medium hover:bg-secondary transition">{l.label}</Link>
-                  </motion.div>
-                ))}
-              </nav>
-              <div className="mt-auto flex flex-col gap-3 pt-6 border-t border-border">
-                {user ? (
-                  <button onClick={() => { logout(); setOpen(false); }} className="text-center py-3 rounded-full border border-border font-semibold text-destructive">Logout</button>
-                ) : (
-                  <>
-                    <Link to="/login" onClick={() => setOpen(false)} className="text-center py-3 rounded-full border border-border font-semibold">Sign in</Link>
-                    <Link to="/register" onClick={() => setOpen(false)} className="text-center py-3 rounded-full bg-emerald text-[color:var(--gold-royal)] font-semibold shadow-soft">Join Free</Link>
-                  </>
-                )}
-              </div>
-            </motion.aside>
-          </>
-        )}
-      </AnimatePresence>
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm lg:hidden" />
+          <aside className="fixed top-0 right-0 bottom-0 w-[85%] max-w-sm z-[70] bg-background border-l border-border shadow-luxe p-6 flex flex-col lg:hidden">
+            <div className="flex items-center justify-between mb-8">
+              <span className="font-display text-2xl font-bold text-gradient-luxury">DestinyPair</span>
+              <button onClick={() => setOpen(false)} className="p-2"><X className="h-6 w-6" /></button>
+            </div>
+            <nav className="flex flex-col gap-1">
+              {navLinks.slice(0, 1).map((l) => (
+                <Link key={l.to} to={l.to} className="block py-3 px-4 rounded-xl text-lg font-medium hover:bg-secondary transition">{l.label}</Link>
+              ))}
+              {/* Mobile About expandable */}
+              <button
+                onClick={() => setMobileAboutOpen(!mobileAboutOpen)}
+                className="flex items-center justify-between w-full py-3 px-4 rounded-xl text-lg font-medium hover:bg-secondary transition"
+              >
+                About
+                <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${mobileAboutOpen ? "rotate-180" : ""}`} />
+              </button>
+              {mobileAboutOpen && (
+                <div className="ml-4 border-l border-border/50 pl-4 space-y-1 pb-2">
+                  {aboutLinks.map(a => (
+                    <Link
+                      key={a.to}
+                      to={a.to}
+                      onClick={() => setOpen(false)}
+                      className="block py-2.5 px-4 rounded-xl text-base font-medium text-foreground/70 hover:text-foreground hover:bg-secondary transition"
+                    >
+                      {a.label}
+                    </Link>
+                  ))}
+                </div>
+              )}
+              {navLinks.slice(1).map((l) => (
+                <Link key={l.to} to={l.to} className="block py-3 px-4 rounded-xl text-lg font-medium hover:bg-secondary transition">{l.label}</Link>
+              ))}
+            </nav>
+            <div className="mt-auto flex flex-col gap-3 pt-6 border-t border-border">
+              {user ? (
+                <button onClick={() => { logout(); setOpen(false); }} className="text-center py-3 rounded-full border border-border font-semibold text-destructive">Logout</button>
+              ) : (
+                <>
+                  <Link to="/login" onClick={() => setOpen(false)} className="text-center py-3 rounded-full border border-border font-semibold">Sign in</Link>
+                  <Link to="/register" onClick={() => setOpen(false)} className="text-center py-3 rounded-full bg-emerald text-[color:var(--gold-royal)] font-semibold shadow-soft">Join Free</Link>
+                </>
+              )}
+            </div>
+          </aside>
+        </>
+      )}
     </>
   );
 }

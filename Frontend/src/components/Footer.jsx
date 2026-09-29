@@ -1,7 +1,6 @@
 ﻿import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Camera, Globe, MessageCircle, Mail, Phone, MapPin, ChevronDown } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 
 const COLUMNS = [
   {
@@ -87,33 +86,25 @@ function FooterColumn({ column, mobile }) {
           className={`h-4 w-4 text-[color:var(--cream-soft)]/60 transition-transform duration-300 ${open ? "rotate-180" : ""}`}
         />
       </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.25 }}
-            className="overflow-hidden"
-          >
-            <ul className="pb-3 space-y-1.5 text-xs text-[color:var(--cream-soft)]/80">
-              {column.links.map(([to, label]) => (
-                <li key={to + label}>
-                  {to.startsWith("mailto:") ? (
-                    <a href={to} className="hover:text-[color:var(--gold-royal)] transition">
-                      {label}
-                    </a>
-                  ) : (
-                    <Link to={to} className="hover:text-[color:var(--gold-royal)] transition">
-                      {label}
-                    </Link>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {open && (
+        <div className="overflow-hidden">
+          <ul className="pb-3 space-y-1.5 text-xs text-[color:var(--cream-soft)]/80">
+            {column.links.map(([to, label]) => (
+              <li key={to + label}>
+                {to.startsWith("mailto:") ? (
+                  <a href={to} className="hover:text-[color:var(--gold-royal)] transition">
+                    {label}
+                  </a>
+                ) : (
+                  <Link to={to} className="hover:text-[color:var(--gold-royal)] transition">
+                    {label}
+                  </Link>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
@@ -192,4 +183,3 @@ export function Footer() {
     </footer>
   );
 }
-

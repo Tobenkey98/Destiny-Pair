@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { Heart, Shield, Users, MapPin, Sparkles, ArrowRight, Check, Star, BookOpen, Compass, HandHeart, Crown, UserCheck } from "lucide-react";
 import { Reveal } from "../components/Section";
 import { api } from "../lib/api";
@@ -16,19 +16,19 @@ function Home() {
   const [recentUsers, setRecentUsers] = useState([]);
   const [plans, setPlans] = useState(null);
   const [testimonials, setTestimonials] = useState([]);
-  const heroImages = [
+  const heroImages = useMemo(() => [
     "/Man_and_woman_laughing_together.jpeg",
     "/Man_and_woman_leaning.jpeg",
     "/Man_and_woman_sitting_bench.jpeg",
     "/Man_and_woman_walking_path.jpeg",
     "/1st picture.jfif",
-  ];
+  ], []);
   const [heroIdx, setHeroIdx] = useState(0);
 
   useEffect(() => {
-    const t = setInterval(() => setHeroIdx((i) => (i + 1) % heroImages.length), 3000);
+    const t = setInterval(() => setHeroIdx((i) => (i + 1) % heroImages.length), 5000);
     return () => clearInterval(t);
-  }, []);
+  }, [heroImages.length]);
 
   useEffect(() => {
     api.recentlyVerified().then(setRecentUsers).catch(() => {});
@@ -40,7 +40,7 @@ function Home() {
     <>
       {/* HERO */}
       <section ref={heroRef} className="relative min-h-screen flex items-center overflow-hidden bg-hero pt-24">
-        {/* Background photo slideshow (all images in public/) */}
+        {/* Background photo slideshow */}
         <div className="absolute inset-0 z-0">
           {heroImages.map((src, i) => (
             <div
@@ -53,21 +53,10 @@ function Home() {
         </div>
         <div className="absolute inset-0 pattern-grid opacity-30" />
         <motion.div style={{ y: heroY }} className="absolute inset-0 pointer-events-none">
-          <div className="absolute top-32 left-[8%] h-72 w-72 rounded-full bg-emerald opacity-25 blur-3xl animate-glow-pulse" />
-          <div className="absolute top-1/2 right-[5%] h-96 w-96 rounded-full bg-gold opacity-30 blur-3xl animate-glow-pulse" style={{ animationDelay: "1.5s" }} />
-          <div className="absolute bottom-20 left-1/3 h-64 w-64 rounded-full bg-[color:var(--burgundy)] opacity-20 blur-3xl animate-glow-pulse" style={{ animationDelay: "2.5s" }} />
+          <div className="absolute top-32 left-[8%] h-72 w-72 rounded-full bg-emerald opacity-25 blur-3xl" />
+          <div className="absolute top-1/2 right-[5%] h-96 w-96 rounded-full bg-gold opacity-30 blur-3xl" />
+          <div className="absolute bottom-20 left-1/3 h-64 w-64 rounded-full bg-[color:var(--burgundy)] opacity-20 blur-3xl" />
         </motion.div>
-
-        {/* Floating particles */}
-        {[...Array(8)].map((_, i) => (
-          <motion.div
-            key={i}
-            className="absolute h-2 w-2 rounded-full bg-[color:var(--gold-royal)]"
-            style={{ left: `${10 + i * 11}%`, top: `${20 + (i % 3) * 25}%` }}
-            animate={{ y: [0, -30, 0], opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 4 + i * 0.4, repeat: Infinity, ease: "easeInOut", delay: i * 0.3 }}
-          />
-        ))}
 
         <motion.div style={{ opacity: heroOpacity }} className="relative max-w-7xl mx-auto px-6 lg:px-8 grid lg:grid-cols-12 gap-12 items-center py-20">
           <div className="lg:col-span-7 text-center lg:text-left">
@@ -124,7 +113,7 @@ function Home() {
           {/* Hero illustration card stack */}
           <div className="lg:col-span-5 relative h-[500px] hidden lg:block">
             <motion.div initial={{ opacity: 0, x: 50 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 1, delay: 0.4 }} className="absolute inset-0">
-              <div className="absolute top-0 right-0 w-72 h-96 rounded-[2rem] bg-luxury shadow-luxe animate-float overflow-hidden">
+              <div className="absolute top-0 right-0 w-72 h-96 rounded-[2rem] bg-luxury shadow-luxe overflow-hidden">
                 <div className="absolute inset-0 pattern-dots opacity-20" />
                 <div className="relative p-8 h-full flex flex-col justify-between text-[color:var(--cream-soft)]">
                   <Crown className="h-10 w-10 text-[color:var(--gold-royal)]" />
@@ -134,7 +123,7 @@ function Home() {
                   </div>
                 </div>
               </div>
-              <div className="absolute bottom-10 left-0 w-64 h-80 rounded-[2rem] glass shadow-luxe animate-float" style={{ animationDelay: "1s" }}>
+              <div className="absolute bottom-10 left-0 w-64 h-80 rounded-[2rem] glass shadow-luxe">
                 <div className="p-7 h-full flex flex-col justify-between">
                   <div className="h-14 w-14 rounded-2xl bg-gold flex items-center justify-center shadow-glow"><HandHeart className="h-7 w-7 text-[color:var(--emerald-deep)]" /></div>
                   <div>
@@ -143,7 +132,7 @@ function Home() {
                   </div>
                 </div>
               </div>
-              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1, type: "spring" }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-gold flex items-center justify-center shadow-glow animate-glow-pulse">
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 1, type: "spring" }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-28 w-28 rounded-full bg-gold flex items-center justify-center shadow-glow">
                 <Heart className="h-12 w-12 text-[color:var(--emerald-deep)]" fill="currentColor" />
               </motion.div>
             </motion.div>
@@ -173,7 +162,7 @@ function Home() {
               { icon: MapPin, num: "36", label: "States Coverage", desc: "Nationwide across Nigeria & Nigerians Overseas." },
             ].map((c, i) => (
               <Reveal key={i} delay={i * 0.1}>
-                <motion.div whileHover={{ y: -8 }} className="group relative p-8 rounded-3xl bg-background border border-border shadow-soft hover:shadow-luxe transition-all overflow-hidden">
+                <div className="group relative p-8 rounded-3xl bg-background border border-border shadow-soft hover:shadow-luxe transition-all overflow-hidden">
                   <div className="absolute -top-12 -right-12 h-32 w-32 rounded-full bg-gold opacity-0 group-hover:opacity-20 blur-2xl transition" />
                   <div className="h-14 w-14 rounded-2xl bg-emerald flex items-center justify-center shadow-soft mb-6">
                     <c.icon className="h-7 w-7 text-[color:var(--gold-royal)]" />
@@ -181,7 +170,7 @@ function Home() {
                   <div className="font-display text-4xl font-bold text-gradient-luxury">{c.num}</div>
                   <div className="mt-2 font-semibold">{c.label}</div>
                   <p className="mt-2 text-sm text-muted-foreground">{c.desc}</p>
-                </motion.div>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -197,11 +186,11 @@ function Home() {
               <div className="aspect-square rounded-[3rem] bg-luxury shadow-luxe overflow-hidden relative">
                 <div className="absolute inset-0 pattern-dots opacity-30" />
                 <div className="absolute inset-0 flex items-center justify-center">
-                  <motion.div animate={{ rotate: 360 }} transition={{ duration: 40, repeat: Infinity, ease: "linear" }} className="relative h-80 w-80">
+                  <div className="relative h-80 w-80">
                     <div className="absolute inset-0 rounded-full border-2 border-[color:var(--gold-royal)]/30" />
                     <div className="absolute inset-6 rounded-full border-2 border-[color:var(--gold-royal)]/50" />
                     <div className="absolute inset-12 rounded-full border-2 border-[color:var(--gold-royal)]/70" />
-                  </motion.div>
+                  </div>
                   <div className="absolute h-40 w-40 rounded-full bg-gold shadow-glow flex items-center justify-center">
                     <Heart className="h-20 w-20 text-[color:var(--emerald-deep)]" fill="currentColor" />
                   </div>
@@ -262,14 +251,14 @@ function Home() {
               { n: "04", title: "Flourish", desc: "Begin pre-marital counselling and forever.", icon: Sparkles },
             ].map((s, i) => (
               <Reveal key={i} delay={i * 0.12}>
-                <motion.div whileHover={{ y: -10 }} className="relative p-8 rounded-3xl bg-background border border-border shadow-soft text-center group">
+                <div className="relative p-8 rounded-3xl bg-background border border-border shadow-soft text-center group">
                   <div className="relative mx-auto h-20 w-20 rounded-full bg-emerald flex items-center justify-center shadow-luxe mb-5 group-hover:shadow-glow transition">
                     <s.icon className="h-9 w-9 text-[color:var(--gold-royal)]" />
                     <span className="absolute -top-2 -right-2 h-9 w-9 rounded-full bg-gold flex items-center justify-center text-xs font-bold text-[color:var(--emerald-deep)] shadow-soft">{s.n}</span>
                   </div>
                   <h3 className="font-display text-2xl font-semibold">{s.title}</h3>
                   <p className="mt-2 text-sm text-muted-foreground">{s.desc}</p>
-                </motion.div>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -292,7 +281,7 @@ function Home() {
               const feats = planFeatures(p);
               return (
                 <Reveal key={p.slug} delay={i * 0.1}>
-                  <motion.div whileHover={{ y: -8 }} className={`relative p-8 rounded-3xl border transition-all h-full ${meta.featured ? "bg-luxury text-[color:var(--cream-soft)] shadow-luxe border-transparent xl:scale-105" : "bg-background border-border shadow-soft hover:shadow-luxe"}`}>
+                  <div className={`relative p-8 rounded-3xl border transition-all h-full ${meta.featured ? "bg-luxury text-[color:var(--cream-soft)] shadow-luxe border-transparent xl:scale-105" : "bg-background border-border shadow-soft hover:shadow-luxe"}`}>
                     {meta.featured && (
                       <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gold text-[color:var(--emerald-deep)] text-xs font-bold tracking-wider shadow-glow">RECOMMENDED</div>
                     )}
@@ -313,7 +302,7 @@ function Home() {
                     <Link to={p.slug === "free" ? "/register" : `/checkout/${p.slug}`} className={`mt-8 block text-center py-3.5 rounded-full font-semibold transition ${meta.featured ? "bg-gold text-[color:var(--emerald-deep)] hover:shadow-glow" : "bg-emerald text-[color:var(--gold-royal)]"}`}>
                       Choose {p.name}
                     </Link>
-                  </motion.div>
+                  </div>
                 </Reveal>
               );
             })}
@@ -337,7 +326,7 @@ function Home() {
           <div className="grid md:grid-cols-3 gap-6">
             {testimonials.map((t, i) => (
               <Reveal key={t.id} delay={i * 0.1}>
-                <motion.div whileHover={{ y: -6 }} className="relative p-8 rounded-3xl glass shadow-soft hover:shadow-luxe transition-all h-full">
+                <div className="relative p-8 rounded-3xl glass shadow-soft hover:shadow-luxe transition-all h-full">
                   <div className="absolute top-6 right-6 text-6xl font-display text-[color:var(--gold-royal)]/30 leading-none">&quot;</div>
                   <div className="flex gap-1 mb-4">{[1,2,3,4,5].map(i => <Star key={i} className="h-4 w-4 fill-[color:var(--gold-royal)] text-[color:var(--gold-royal)]" />)}</div>
                   <p className="text-foreground/90 leading-relaxed italic">&ldquo;{t.quote}&rdquo;</p>
@@ -348,7 +337,7 @@ function Home() {
                       <div className="text-xs text-muted-foreground">{t.location || "Christian Union"}</div>
                     </div>
                   </div>
-                </motion.div>
+                </div>
               </Reveal>
             ))}
           </div>
@@ -359,7 +348,6 @@ function Home() {
       <section className="relative py-32 overflow-hidden">
         <div className="absolute inset-0 bg-luxury" />
         <div className="absolute inset-0 pattern-grid opacity-20" />
-        <motion.div animate={{ scale: [1, 1.2, 1] }} transition={{ duration: 8, repeat: Infinity }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[500px] w-[500px] rounded-full bg-gold opacity-30 blur-3xl" />
         <div className="relative max-w-4xl mx-auto px-6 text-center text-[color:var(--cream-soft)]">
           <Reveal>
             <Shield className="h-12 w-12 mx-auto text-[color:var(--gold-royal)] mb-6" />
@@ -397,7 +385,7 @@ function Home() {
                 <div className="flex items-center gap-4 p-4 rounded-2xl border border-border/50 hover:shadow-soft transition cursor-default">
                   <div className="h-14 w-14 rounded-xl overflow-hidden shrink-0 bg-gradient-to-br from-emerald to-gold p-0.5">
                     {u.primary_photo ? (
-                      <img src={u.primary_photo} alt="" className="h-full w-full rounded-xl object-cover" />
+                      <img src={u.primary_photo} alt="" className="h-full w-full rounded-xl object-cover" loading="lazy" />
                     ) : (
                       <div className="h-full w-full rounded-xl bg-background flex items-center justify-center">
                         <span className="text-lg font-bold text-gradient-luxury">

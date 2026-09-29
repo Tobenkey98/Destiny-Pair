@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { api, getAdminAccessToken, getAdminRefreshToken } from '../lib/api';
 
 const AdminContext = createContext(null);
@@ -183,23 +183,25 @@ export function AdminProvider({ children }) {
 
   const counts = dashboard?.counts || {};
 
+  const value = useMemo(() => ({
+    adminProfile,
+    dashboard,
+    counts,
+    loading,
+    error,
+    adminLogin,
+    adminLogout,
+    refreshDashboard,
+    canAccess,
+    hasModule,
+    isAdmin,
+    hasRole,
+    roleLevel,
+    roleDisplay: adminProfile?.role_display || '',
+  }), [adminProfile, dashboard, counts, loading, error, adminLogin, adminLogout, refreshDashboard, canAccess, hasModule, isAdmin, hasRole, roleLevel]);
+
   return (
-    <AdminContext.Provider value={{
-      adminProfile,
-      dashboard,
-      counts,
-      loading,
-      error,
-      adminLogin,
-      adminLogout,
-      refreshDashboard,
-      canAccess,
-      hasModule,
-      isAdmin,
-      hasRole,
-      roleLevel,
-      roleDisplay: adminProfile?.role_display || '',
-    }}>
+    <AdminContext.Provider value={value}>
       {children}
     </AdminContext.Provider>
   );

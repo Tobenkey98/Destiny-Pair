@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { api, getUserAccessToken, getUserRefreshToken } from '../lib/api';
 
 const AuthContext = createContext(null);
@@ -50,7 +50,7 @@ export function AuthProvider({ children }) {
       .then(data => setUser(data))
       .catch(() => clearTokens())
       .finally(() => setLoading(false));
-  }, [clearTokens, getToken]);
+  }, [clearTokens, getToken, user]);
 
   const signup = useCallback(async (payload) => {
     const data = await api.signup(payload);
@@ -138,8 +138,20 @@ export function AuthProvider({ children }) {
     setUser(null);
   }, [clearTokens]);
 
+  const value = useMemo(() => ({
+    user,
+    loading,
+    signup,
+    login,
+    socialAuth,
+    verifyEmail,
+    resendVerification,
+    updateProfile,
+    logout,
+  }), [user, loading, signup, login, socialAuth, verifyEmail, resendVerification, updateProfile, logout]);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signup, login, socialAuth, verifyEmail, resendVerification, updateProfile, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

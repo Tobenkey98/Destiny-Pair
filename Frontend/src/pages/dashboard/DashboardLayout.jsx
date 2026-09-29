@@ -1,5 +1,4 @@
 import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useRef } from "react";
 import { FourSquare } from "react-loading-indicators";
 import {
@@ -49,7 +48,7 @@ export default function DashboardLayout() {
     api.getUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
     const interval = setInterval(() => {
       api.getUnreadCount().then(d => setUnreadCount(d.count || 0)).catch(() => {});
-    }, 15000);
+    }, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -78,18 +77,14 @@ export default function DashboardLayout() {
         <div className="absolute top-[40%] right-[20%] h-[30vh] w-[30vh] rounded-full bg-[color:var(--burgundy)] opacity-[0.04] blur-[80px]" />
       </div>
 
-      <AnimatePresence>
-        {sidebarOpen && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={() => setSidebarOpen(false)}
-            className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
-          />
-        )}
-      </AnimatePresence>
+      {sidebarOpen && (
+        <div
+          onClick={() => setSidebarOpen(false)}
+          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden"
+        />
+      )}
 
-      <motion.aside
-        initial={false}
+      <aside
         className={`fixed top-0 left-0 bottom-0 z-[60] w-72 bg-background/90 backdrop-blur-2xl border-r border-border/50 shadow-luxe transition-transform duration-300 lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -137,7 +132,7 @@ export default function DashboardLayout() {
                   <Icon className="h-5 w-5" />
                   <span>{item.label}</span>
                   {isActive && (
-                    <motion.div layoutId="nav-pill" className="ml-auto h-2 w-2 rounded-full bg-gold shadow-glow" />
+                    <div className="ml-auto h-2 w-2 rounded-full bg-gold shadow-glow" />
                   )}
                 </Link>
               );
@@ -181,7 +176,7 @@ export default function DashboardLayout() {
             </button>
           </div>
         </div>
-      </motion.aside>
+      </aside>
 
       <div className="lg:pl-72">
         <header className="sticky top-0 z-30 glass border-b border-border/50">
@@ -194,14 +189,10 @@ export default function DashboardLayout() {
             </button>
 
             <div className="flex items-center gap-3">
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald/5 text-xs font-semibold text-emerald-deep dark:text-gold-royal"
-              >
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald/5 text-xs font-semibold text-emerald-deep dark:text-gold-royal">
                 <Crown className="h-3.5 w-3.5 text-gold-royal" />
                 Premium Plus
-              </motion.div>
+              </div>
             </div>
 
             <div className="flex items-center gap-2">

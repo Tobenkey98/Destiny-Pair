@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, useEffect, useState, useRef } from "react";
+﻿import { lazy, Suspense, useEffect, useState, useRef, useMemo } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { FourSquare } from "react-loading-indicators";
 import { ThemeProvider } from "./components/ThemeProvider";
@@ -158,7 +158,7 @@ function MainLayout() {
 function App() {
   return (
     <ErrorBoundary>
-<BrowserRouter>
+      <BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
             <SeoMeta />
@@ -198,14 +198,14 @@ function App() {
                   <Route path="notifications" element={<AdminNotifications />} />
                   <Route path="audit" element={<AdminAudit />} />
                   <Route path="settings" element={<AdminSettings />} />
-<Route path="denominations" element={<AdminDenominations />} />
+                  <Route path="denominations" element={<AdminDenominations />} />
                   <Route path="pending-denominations" element={<AdminPendingDenominations />} />
                   <Route path="testimonials" element={<AdminTestimonials />} />
                   <Route path="bot-reports" element={<AdminChatbot />} />
                   <Route path="roles" element={<AdminRoles />} />
                   <Route path="*" element={<AdminNotFound />} />
                 </Route>
-<Route path="/*" element={<MainLayout />} />
+                <Route path="/*" element={<MainLayout />} />
               </Routes>
             </Suspense>
             <ChatWidget />

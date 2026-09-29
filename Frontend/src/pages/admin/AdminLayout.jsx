@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
 import { Mosaic } from "react-loading-indicators";
 import { AdminProvider, useAdmin } from "../../context/AdminContext";
 import { getAdminAccessToken } from "../../lib/api";
@@ -93,18 +92,9 @@ function AdminLayoutInner() {
         <div className="flex-1 flex flex-col min-w-0">
           <AdminTopbar onMobileMenu={() => setMobileOpen(true)} />
           <main className="flex-1 overflow-x-hidden">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={location.pathname}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="mx-auto w-full max-w-[1400px] px-4 lg:px-8 py-6 lg:py-8"
-              >
-                <Outlet />
-              </motion.div>
-            </AnimatePresence>
+            <div className="mx-auto w-full max-w-[1400px] px-4 lg:px-8 py-6 lg:py-8">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>
